@@ -1,26 +1,56 @@
 global:
-  scrape_interval: 15s
+  scrape_interval:     15s
   evaluation_interval: 15s
+  scrape_timeout:      10s
+
+# ------------------------------------
+# Regles d'alerta (base per a futur Alertmanager)
+# ------------------------------------
+# rule_files:
+#   - /etc/prometheus/alerts/*.yml
 
 scrape_configs:
+
+  # Prometheus propi
   - job_name: "prometheus"
     static_configs:
       - targets: ["prometheus:9090"]
 
+  # MatriuWeb — endpoint /metrics (prometheus-net)
   - job_name: "matriuweb"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["web:8080"]
+    # Healthcheck secundari:
+
+  # MatriuWeb — health JSON
+  - job_name: "matriuweb-health"
     metrics_path: /health
     static_configs:
       - targets: ["web:8080"]
 
+  # Host / LXC (CPU, memòria, disc, xarxa)
   - job_name: "node-exporter"
     static_configs:
       - targets: ["node-exporter:9100"]
 
+  # Contenidors Docker
   - job_name: "cadvisor"
     static_configs:
       - targets: ["cadvisor:8080"]
+    metric_relabel_configs:
+      # Descartar mètriques poc útils de cAdvisor per reduir volum
+      - source_labels: [__name__]
+        regex: "container_tasks_state|container_memory_failures_total"
+        action: drop
 
+  # Redis
   - job_name: "redis-exporter"
     static_configs:
       - targets: ["redis-exporter:9121"]
-    
+
+  # Grafana
+  - job_name: "grafana"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["grafana:3000"]

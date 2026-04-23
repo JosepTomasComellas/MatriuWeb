@@ -1,6 +1,10 @@
 name: matriuweb
 
 services:
+
+  # ============================
+  # Aplicació Blazor
+  # ============================
   web:
     build:
       context: ./src/MatriuWeb
@@ -13,6 +17,9 @@ services:
       Redis__ConnectionString: redis:6379
       Persistence__ConfigPath: /app/data/config/frame-config.json
       Persistence__BackupPath: /app/data/config/backups
+      Persistence__MaxBackups: "20"
+      App__Version: "0.1.0"
+      App__PublicUrl: https://tuteapps.ddns.net:4444
     volumes:
       - ./data/config:/app/data/config
       - ./logs/web:/app/logs
@@ -24,11 +31,14 @@ services:
       interval: 30s
       timeout: 5s
       retries: 5
-      start_period: 20s
+      start_period: 30s
     networks:
       - internal
       - edge
 
+  # ============================
+  # Nginx (reverse proxy HTTPS)
+  # ============================
   nginx:
     image: nginx:1.27-alpine
     container_name: matriuweb-nginx
@@ -43,7 +53,7 @@ services:
       - ./nginx/certs:/etc/nginx/certs:ro
       - ./logs/nginx:/var/log/nginx
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "https://localhost:4444/health", "--no-check-certificate"]
+      test: ["CMD", "wget", "--spider", "-q", "--no-check-certificate", "https://localhost:4444/health"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -52,11 +62,14 @@ services:
       - edge
       - internal
 
+  # ============================
+  # Redis (cache intern)
+  # ============================
   redis:
     image: redis:7-alpine
     container_name: matriuweb-redis
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
     volumes:
       - ./data/redis:/data
     healthcheck:
@@ -67,6 +80,9 @@ services:
     networks:
       - internal
 
+  # ============================
+  # Prometheus
+  # ============================
   prometheus:
     image: prom/prometheus:v2.54.1
     container_name: matriuweb-prometheus
@@ -74,6 +90,8 @@ services:
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.enable-lifecycle"
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./data/prometheus:/prometheus
@@ -85,6 +103,9 @@ services:
     networks:
       - internal
 
+  # ============================
+  # Grafana
+  # ============================
   grafana:
     image: grafana/grafana:11.1.4
     container_name: matriuweb-grafana
@@ -93,7 +114,13 @@ services:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_SECURITY_ALLOW_EMBEDDING: "true"
-      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s:%(http_port)s/grafana/"
+      GF_SECURITY_COOKIE_SAMESITE: none
+      GF_SECURITY_COOKIE_SECURE: "true"
+      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s:4444/grafana/"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
     volumes:
       - ./data/grafana:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -109,23 +136,33 @@ services:
     networks:
       - internal
 
+  # ============================
+  # node_exporter (host/LXC)
+  # ============================
   node-exporter:
     image: prom/node-exporter:v1.8.2
     container_name: matriuweb-node-exporter
     restart: unless-stopped
     command:
       - "--path.rootfs=/host"
+      - "--collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker|snap)($|/)"
     pid: host
     volumes:
       - "/:/host:ro,rslave"
     networks:
       - internal
 
+  # ============================
+  # cAdvisor (contenidors Docker)
+  # ============================
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.49.1
     container_name: matriuweb-cadvisor
     restart: unless-stopped
     privileged: true
+    command:
+      - "--docker_only=true"
+      - "--store_container_labels=false"
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
@@ -134,6 +171,9 @@ services:
     networks:
       - internal
 
+  # ============================
+  # redis-exporter
+  # ============================
   redis-exporter:
     image: oliver006/redis_exporter:v1.62.0
     container_name: matriuweb-redis-exporter
@@ -151,4 +191,4 @@ networks:
     driver: bridge
   internal:
     driver: bridge
-  
+    internal: true

@@ -1,5 +1,6 @@
 using MatriuWeb.Services;
 using MudBlazor.Services;
+using Prometheus;
 using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -45,6 +46,10 @@ if (!app.Environment.IsDevelopment())
 
 app.UseStaticFiles();
 app.UseAntiforgery();
+
+// Mètriques Prometheus (accessible des de la xarxa interna Docker)
+app.UseMetricServer(port: 8080, url: "/metrics");
+app.UseHttpMetrics();
 
 app.MapRazorComponents<MatriuWeb.Components.App>()
     .AddInteractiveServerRenderMode();
