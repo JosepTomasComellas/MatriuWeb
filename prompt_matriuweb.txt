@@ -1,0 +1,590 @@
+Vull que actuïs com un arquitecte i desenvolupador sènior especialitzat en Blazor (.NET 10), Docker, Docker Compose, Nginx, SSL/TLS, Redis, PWA, Grafana, Prometheus i desplegament en Proxmox LXC.
+
+Necessito que em generis una solució completa, funcional, executable i estructurada com un repositori GitHub real, llesta per desplegar en un entorn productiu lleuger.
+
+# OBJECTIU DEL PROJECTE
+
+Crear una aplicació web en C# amb Blazor (.NET 10) que funcioni dins de Docker, desplegada amb docker compose, amb:
+
+- Nginx com a reverse proxy HTTPS
+- Redis com a cache intern
+- Persistència en fitxer JSON
+- PWA instal·lable
+- Pensada per funcionar en una LXC de Proxmox
+
+La web serà un dashboard de monitorització amb una matriu configurable d’iframes per mostrar eines de monitorització i altres webs internes.
+
+A més, vull que la solució inclogui també tota la infraestructura necessària per monitoritzar l’estat de l’entorn amb Grafana, Prometheus i exportadors/agents adequats, de manera que aquests dashboards també es puguin visualitzar des de la pròpia MatriuWeb.
+
+# ENTORN REAL
+
+- Hostname intern de l’LXC principal: ct-matriuweb.tute.int
+- URL pública final: https://tuteapps.ddns.net:4444
+- Publicació via:
+  - Nginx
+  - HTTPS
+  - Port 4444
+- El firewall extern ja el configuraré jo
+- Ruta obligatòria de desplegament:
+  /docker/MatriuWeb
+
+# DECISIONS ARQUITECTÒNIQUES OBLIGATÒRIES
+
+## Stack principal de l’aplicació
+- Blazor (.NET 10)
+- MudBlazor
+- Docker Compose
+- Nginx
+- Redis
+- PWA
+
+## Persistència
+- La persistència principal ha de ser en fitxer JSON
+- Fitxer principal de configuració:
+  /docker/MatriuWeb/data/config/frame-config.json
+- Les dades NO es poden perdre en reiniciar contenidors
+- S’ha de muntar amb volums persistents Docker
+- Redis NO és la font de veritat
+
+## Redis
+- Només per cache i optimització de rendiment
+- Només intern dins la xarxa Docker
+- No exposar Redis públicament
+
+## SQL Server
+- No utilitzar SQL Server
+- Considera’l innecessari per aquest cas d’ús
+
+# REQUISITS FUNCIONALS DE MATRIUWEB
+
+## Dashboard principal
+- La pàgina principal ha de mostrar una matriu configurable d’iframes
+- Nombre mínim de frames: 2
+- El nombre de frames ha de ser configurable des de la UI
+- El layout de la graella s’ha d’adaptar automàticament al nombre de frames
+- Cada frame ha de tenir:
+  - títol
+  - URL
+  - refresh configurable
+  - estat visual
+  - opció d’obrir en nova pestanya
+
+## Vista enfocada
+- S’ha de poder seleccionar un únic frame
+- La selecció s’ha de fer des d’un botó de la barra superior
+- Quan hi ha un frame seleccionat:
+  - el frame seleccionat es mostra gran
+  - la resta es mostren petits en zona secundària
+- Ha d’existir un botó per tornar a la vista matriu
+
+## Configuració des de la UI
+Cal una pantalla de configuració que permeti:
+- afegir frames
+- editar frames
+- eliminar frames mantenint sempre un mínim de 2
+- reordenar frames
+  - prioritat a botons pujar/baixar
+  - drag & drop només si queda net i mantenible
+- configurar el refresh global i/o per frame
+- activar o desactivar frames
+- definir quin perfil és el perfil actiu
+
+## Perfils
+Vull suport per múltiples perfils de configuració:
+- crear perfil
+- duplicar perfil
+- editar perfil
+- eliminar perfil
+- seleccionar perfil actiu
+- cada perfil ha de poder tenir:
+  - frames propis
+  - ordre propi
+  - refresc propi
+  - vista per defecte
+  - opcions kiosk pròpies si té sentit
+
+## Importació / exportació
+- exportar configuració a JSON
+- importar configuració des de JSON
+- validar abans d’aplicar
+- conservar còpia de seguretat abans de substituir
+
+## Backups
+- carpeta de backups:
+  /docker/MatriuWeb/data/config/backups/
+- guardar versions amb timestamp
+- conservar els últims N backups
+- permetre restaurar una configuració des de la UI si és viable
+- si no és viable des de la UI, com a mínim amb script
+
+## Validació
+- mínim 2 frames
+- títol obligatori
+- URL ben formada
+- ordre coherent
+- refresh en valors raonables
+- el sistema ha de ser robust davant JSON corrupte
+
+## Inicialització robusta
+- si no existeix el JSON, crear-lo amb configuració mínima vàlida
+- si el JSON està corrupte, intentar restaurar l’últim backup vàlid
+- si hi ha menys de 2 frames, regenerar una configuració mínima segura o rebutjar la configuració i avisar
+
+# UX, RENDIMENT I GESTIÓ D’ERRORS
+
+## Auto-refresh
+- suport global i per frame
+- valors típics: 10s, 30s, 60s, 120s
+- possibilitat de pausar el refresh
+- si és viable, pausar el refresh quan la pestanya no està activa
+- pausar o reduir refresh en mode configuració si té sentit
+
+## Loading state
+- skeleton o placeholder mentre carrega
+- indicador visual de càrrega
+- timeout visible si és viable
+
+## Errors i fallback d’iframe
+Cal gestionar correctament:
+- URL invàlida
+- timeout
+- iframe bloquejat per X-Frame-Options
+- iframe bloquejat per Content-Security-Policy
+- errors de càrrega
+- errors de connectivitat
+
+Quan això passi, el frame ha de mostrar:
+- estat visual clar
+- missatge d’error entenedor
+- botó “Obrir en nova pestanya”
+
+## Estat de salut dels frames
+Afegeix un petit indicador visual per frame:
+- OK
+- lent
+- inaccessible
+- bloquejat
+- carregant
+
+# MODE KIOSK
+
+Vull que la solució incorpori directament mode kiosk.
+
+## Ruta
+- /kiosk
+
+## Característiques
+- pantalla completa
+- sense toolbar o amb toolbar mínima
+- optimitzat per pantalles grans
+- opcional rotació automàtica entre frames destacats o entre perfils
+- possibilitat de sortir del mode kiosk amb acció controlada
+- compatible amb PWA instal·lable
+
+# RUTES PRINCIPALS
+
+- / o /dashboard -> dashboard principal
+- /config -> configuració
+- /kiosk -> mode kiosk
+- /health -> estat del sistema
+
+# SEGURETAT
+
+No vull autenticació completa dins de l’aplicació, però sí protecció mínima per a la configuració.
+
+## Protegir /config via Nginx
+- amb basic auth, restricció IP o una combinació d’ambdues
+- documenta l’opció escollida
+- deixa-ho configurable
+
+## Redis
+- només intern
+- no exposat
+
+## Prometheus i exportadors
+- evita exposar-los públicament si no és necessari
+- documenta quins serveis haurien de quedar només en xarxa interna
+
+# PWA (OBLIGATORI)
+
+Vull que l’aplicació quedi preparada directament com a PWA instal·lable.
+
+## Incloure
+- manifest.webmanifest
+- icones
+- service worker
+- mode standalone
+- experiència bona en escriptori, tauleta i mòbil
+
+## Consideracions
+- fes una PWA simple, robusta i mantenible
+- cacheja assets propis
+- deixa clar al README que els iframes externs no es poden garantir offline
+- compatible amb mode kiosk
+
+# DISSENY I LLENGUATGE VISUAL (OBLIGATORI)
+
+Vull que la interfície de la nova aplicació segueixi de manera clara i reconeixible el llenguatge visual del projecte AutoCo, que correspon a la web publicada a:
+
+https://tuteapps.ddns.net:4443/professor/dashboard
+
+Pren com a referència:
+- el repositori GitHub d’AutoCo
+- la web publicada
+- la captura de pantalla adjunta com a referència visual principal
+
+## Objectiu visual
+No vull només una inspiració genèrica.
+Vull que la nova aplicació tingui una estètica clarament coherent amb AutoCo, però adaptada a un dashboard de monitorització amb iframes.
+
+## Elements visuals a mantenir
+- tema fosc com a estil principal
+- fons amb degradats subtils i sensació de profunditat
+- topbar/header compacte
+- panells i targetes fosques amb contrast suau
+- vores suaus i arrodonides
+- jerarquia visual clara
+- aspecte modern, net i professional
+- estètica tipus dashboard tècnic / aplicació de gestió
+- accents de color controlats, similars als de la referència
+- densitat visual equilibrada
+- ús elegant de MudBlazor
+
+## Adaptació al nou context
+- el protagonista han de ser els frames de monitorització
+- la vista principal ha de prioritzar superfície útil
+- la barra superior ha de ser més funcional que decorativa
+- els panells de configuració han de mantenir el mateix llenguatge visual
+
+## Components visuals desitjats
+- barra superior compacta
+- targetes/panells per als frames
+- botons d’acció integrats a capçalera
+- inputs, selectors i diàlegs coherents amb la referència
+- indicadors visuals d’estat per errors, càrrega i connectivitat
+- responsive sense perdre el llenguatge visual
+
+## No vull
+- una UI genèrica de plantilla
+- una estètica clara per defecte
+- una còpia funcional exacta d’AutoCo
+- una interfície que perdi l’essència visual de la referència
+
+## Sí vull
+- una reinterpretació fidel del disseny d’AutoCo
+- una adaptació coherent a una aplicació de monitorització
+- una interfície amb aparença de producte real i consistent
+- una UI que sembli feta per la mateixa família visual
+
+## Implementació visual
+- personalitza el tema MudBlazor
+- paleta fosca coherent
+- consistència entre components
+- la disposició general ha de recordar clarament la web de referència
+- si alguna decisió no es pot replicar exactament, mantén l’esperit visual abans que improvisar un estil diferent
+
+# MONITORITZACIÓ DE LA INFRAESTRUCTURA (OBLIGATORI)
+
+A més de MatriuWeb, vull que generis tota una solució de monitorització de la infraestructura basada en Grafana.
+
+## Objectiu
+Monitoritzar:
+- l’LXC o host on corre la solució
+- els contenidors Docker del projecte
+- Nginx
+- Redis
+- la pròpia MatriuWeb
+- si és viable, Prometheus mateix
+
+## Stack recomanat
+Inclou i integra:
+- Grafana
+- Prometheus
+- node_exporter
+- cAdvisor
+- exporter de Redis
+- exporter de Nginx si és viable
+- endpoints /health de MatriuWeb per healthchecks i diagnòstic
+
+## Estratègia de desplegament de monitorització
+Vull que decideixis i justifiquis breument la millor opció entre:
+1. tot dins del mateix docker compose de /docker/MatriuWeb
+2. stack separat de monitorització però documentat dins el mateix repo
+
+Prioritza:
+- simplicitat
+- mantenibilitat
+- compatibilitat amb LXC
+- facilitat de desplegament
+- seguretat raonable
+
+Si no hi ha un motiu fort per separar-ho, prefereixo una solució senzilla i operativa.
+
+## Grafana
+- inclou configuració bàsica
+- provisiona datasource de Prometheus si és viable
+- inclou dashboards base o JSON provisionats si és possible
+- deixa preparats dashboards útils per:
+  - host/LXC
+  - contenidors Docker
+  - Nginx
+  - Redis
+  - estat general de la plataforma
+
+## Prometheus
+- genera prometheus.yml complet
+- configura scrape jobs per:
+  - node_exporter
+  - cAdvisor
+  - Redis exporter
+  - Nginx exporter si escau
+  - MatriuWeb /health o mètriques si en exposes
+- usa una configuració clara, mantenible i comentada
+
+## node_exporter
+- per monitoritzar CPU, memòria, disc, filesystem, càrrega, etc.
+
+## cAdvisor
+- per monitoritzar contenidors Docker
+- documenta qualsevol consideració especial per LXC/Proxmox si n’hi ha
+
+## Redis exporter
+- per veure memòria, connexions i mètriques bàsiques de Redis
+
+## Nginx exporter
+- només si és viable i no complica massa
+- si no ho veus clar, justifica-ho i deixa preparat com a millora futura
+
+## Integració amb MatriuWeb
+Vull que MatriuWeb pugui mostrar dashboards de Grafana dins dels iframes si la configuració de Grafana ho permet.
+
+Per tant:
+- explica al README com configurar Grafana per permetre embedding en iframe
+- contempla configuracions com:
+  allow_embedding = true
+- documenta limitacions de CSP o seguretat si hi són
+
+## Alertes
+No cal una plataforma d’alertes molt gran, però:
+- si és fàcil, deixa preparada una base per afegir Alertmanager més endavant
+- si no, documenta-ho com a millora futura
+
+# NGINX + SSL
+
+La web s’ha de publicar externament amb:
+- host públic: tuteapps.ddns.net
+- port públic: 4444
+- HTTPS
+
+## Configuració obligatòria
+Fes que Nginx contempli:
+- listen 4444 ssl;
+- server_name tuteapps.ddns.net;
+- reverse proxy cap al servei Blazor intern
+- headers:
+  - X-Forwarded-For
+  - X-Forwarded-Proto
+  - Host
+- suport per WebSockets o connexions persistents que Blazor necessiti
+- configuració neta i mantenible
+
+## Certificats
+Ubicació:
+- /docker/MatriuWeb/nginx/certs/
+
+Admet:
+- certificats propis
+- o certificats ja existents
+- documenta on col·locar-los
+
+# DOCKER COMPOSE
+
+Vull que generis el fitxer compose.yaml complet.
+
+## Serveis mínims
+- web (Blazor)
+- nginx
+- redis
+- grafana
+- prometheus
+- node-exporter
+- cadvisor
+- redis-exporter
+- nginx-exporter si escau
+
+## Volums persistents
+- configuració JSON
+- backups
+- redis
+- grafana
+- prometheus si és convenient
+- certificats
+- logs
+
+## Xarxes
+- separa bé xarxa interna i exposició pública si té sentit
+- no exposis innecessàriament serveis interns
+
+## Healthchecks
+Afegeix healthchecks per:
+- web
+- nginx
+- redis
+- grafana
+- prometheus si és viable
+
+# REPOSITORI GITHUB
+
+Vull que tota la solució es presenti com un repo GitHub real i professional.
+
+## Estratègia de desplegament
+El desplegament s’ha de fer des del repo amb:
+git pull
+docker compose up -d --build
+
+No vull GitHub Actions complexes ni automatismes innecessaris.
+
+## Incloure sí o sí
+- estructura clara de repo
+- .gitignore
+- README.md
+- .env.example
+- scripts útils
+- documentació de desplegament i operació
+
+# ESTRUCTURA ORIENTATIVA DEL REPOSITORI
+
+MatriuWeb/
+├── compose.yaml
+├── .env.example
+├── .gitignore
+├── README.md
+├── scripts/
+│   ├── deploy.sh
+│   ├── backup-config.sh
+│   ├── restore-config.sh
+│   ├── logs.sh
+│   └── bootstrap-lxc.sh
+├── nginx/
+│   ├── conf.d/
+│   │   └── matriuweb.conf
+│   └── certs/
+├── monitoring/
+│   ├── prometheus/
+│   │   └── prometheus.yml
+│   ├── grafana/
+│   │   ├── provisioning/
+│   │   └── dashboards/
+│   └── alerts/
+├── data/
+│   ├── config/
+│   │   ├── frame-config.json
+│   │   └── backups/
+│   ├── redis/
+│   ├── grafana/
+│   └── prometheus/
+├── logs/
+└── src/
+    └── MatriuWeb/
+        ├── Components/
+        │   ├── Layout/
+        │   ├── Pages/
+        │   └── Shared/
+        ├── Models/
+        ├── Services/
+        ├── wwwroot/
+        │   ├── css/
+        │   ├── js/
+        │   ├── images/
+        │   ├── manifest.webmanifest
+        │   └── service-worker.js
+        ├── Program.cs
+        ├── appsettings.json
+        ├── appsettings.Development.json
+        └── MatriuWeb.csproj
+
+Pots ajustar aquesta estructura si proposes una alternativa millor, però mantén-la clara, neta i professional.
+
+# SERVEIS I CAPES DE L’APLICACIÓ
+
+Vull una arquitectura neta i mantenible.
+
+Com a mínim, separa serveis com:
+- FrameConfigurationService
+- JsonPersistenceService
+- BackupService
+- RedisCacheService
+- DashboardStateService
+- IframeStatusService
+- ProfileService
+- HealthService
+
+# SCRIPTS OPERACIONALS
+
+Genera com a mínim:
+- deploy.sh
+- backup-config.sh
+- restore-config.sh
+- logs.sh
+- bootstrap-lxc.sh
+
+## bootstrap-lxc.sh
+Ha de preparar una LXC Debian/Ubuntu per:
+- instal·lar Docker i Docker Compose plugin
+- crear l’estructura base a /docker/MatriuWeb
+- preparar carpetes de config, certs, redis, backups, logs
+- deixar el sistema llest per clonar el repo i fer docker compose up -d --build
+
+# README I DOCUMENTACIÓ
+
+El README ha de ser complet i útil.
+
+## Ha d’incloure
+- requisits previs
+- estructura del projecte
+- com executar en local
+- com desplegar a l’LXC
+- com configurar SSL a Nginx
+- on posar els certificats
+- com funciona la persistència JSON
+- com funciona Redis
+- com funciona la PWA
+- limitacions dels iframes
+- com funciona Grafana/Prometheus
+- com accedir als dashboards
+- com permetre embedding de Grafana dins iframes
+- consideracions específiques de LXC/Proxmox
+- flux d’actualització des de GitHub
+- com fer backups i restauracions
+- com recuperar-se d’un JSON corrupte
+
+# REQUISITS DE QUALITAT
+
+- codi complet, no fragments
+- comentaris útils
+- solució executable de veritat
+- arquitectura clara
+- simplicitat abans que sobreenginyeria
+- no afegeixis complexitat innecessària
+- mantingues separació de responsabilitats
+- prioritza mantenibilitat, robustesa i bon rendiment
+
+# FORMAT DE LA RESPOSTA
+
+Vull la resposta en aquest ordre:
+
+1. decisió arquitectònica i justificació
+2. decisió sobre l’stack de monitorització i justificació
+3. resum de l’arquitectura proposada
+4. estructura completa del repositori
+5. tots els fitxers complets, un a un
+6. instruccions d’execució local
+7. instruccions de desplegament a l’LXC
+8. instruccions de publicació HTTPS
+9. instruccions de monitorització amb Grafana
+10. flux d’actualització des de GitHub
+11. possibles millores futures
+
+Si la resposta és molt llarga, divideix-la en blocs, però sense ometre cap fitxer important.
+
+Genera una solució real, executable i mantenible, optimitzada per simplicitat, rendiment, estètica coherent amb AutoCo i capacitat real de monitorització de la infraestructura.

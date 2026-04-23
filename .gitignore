@@ -1,0 +1,48 @@
+# Build
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Rider
+.idea/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# Env files
+.env
+
+# Data local (important)
+data/
+docker-data/
+
+# Certificates
+nginx/certs/
+
+# Node (per si algun dia hi ha eines)
+node_modules/
+
+# Publish
+publish/
+
+# Secrets
+secrets.json
+
+# Coverage
+coverage/
+
+# Temporary
+tmp/
+temp/
