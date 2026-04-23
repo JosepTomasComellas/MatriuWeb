@@ -1,0 +1,58 @@
+@page "/health-ui"
+@rendermode InteractiveServer
+@inject IHealthService HealthService
+
+<PageTitle>MatriuWeb — Estat</PageTitle>
+
+<div style="padding:24px; max-width:600px; margin:0 auto;">
+    <MudText Typo="Typo.h5" Style="color:#f1f5f9; margin-bottom:24px;">Estat del sistema</MudText>
+
+    @if (_status != null)
+    {
+        <MudCard Style="background:#1e293b; border:1px solid rgba(255,255,255,0.07);">
+            <MudCardContent>
+                <MudGrid>
+                    <MudItem xs="6"><MudText Typo="Typo.caption" Style="color:#64748b;">Estat global</MudText></MudItem>
+                    <MudItem xs="6">
+                        <MudChip T="string" Color="@(_status.Status == "ok" ? Color.Success : Color.Warning)" Size="Size.Small">
+                            @_status.Status.ToUpper()
+                        </MudChip>
+                    </MudItem>
+                    <MudItem xs="6"><MudText Typo="Typo.caption" Style="color:#64748b;">Versió</MudText></MudItem>
+                    <MudItem xs="6"><MudText Typo="Typo.body2" Style="color:#f1f5f9;">@_status.Version</MudText></MudItem>
+                    <MudItem xs="6"><MudText Typo="Typo.caption" Style="color:#64748b;">Timestamp</MudText></MudItem>
+                    <MudItem xs="6"><MudText Typo="Typo.body2" Style="color:#94a3b8;">@_status.Timestamp.ToString("u")</MudText></MudItem>
+                </MudGrid>
+
+                <MudDivider Style="margin:16px 0;" />
+
+                @foreach (var (key, val) in _status.Components)
+                {
+                    <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                        <MudText Typo="Typo.body2" Style="color:#94a3b8;">@key</MudText>
+                        <MudChip T="string" Color="@(val == "ok" ? Color.Success : Color.Error)" Size="Size.Small">@val</MudChip>
+                    </div>
+                }
+            </MudCardContent>
+        </MudCard>
+
+        <MudButton Variant="Variant.Text" Color="Color.Primary"
+                   Style="margin-top:16px;"
+                   OnClick="Refresh">Actualitzar</MudButton>
+    }
+    else
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+</div>
+
+@code {
+    private HealthStatus? _status;
+
+    protected override async Task OnInitializedAsync() => await Refresh();
+
+    private async Task Refresh()
+    {
+        _status = await HealthService.GetStatusAsync();
+    }
+}

@@ -1,0 +1,52 @@
+@page "/kiosk"
+@rendermode InteractiveServer
+@inject IFrameConfigurationService ConfigService
+@inject NavigationManager Nav
+
+<PageTitle>MatriuWeb — Kiosk</PageTitle>
+
+<div class="kiosk-root">
+    @if (_frames != null && _frames.Any())
+    {
+        @if (_focusIdx >= 0 && _focusIdx < _frames.Count)
+        {
+            var frame = _frames[_focusIdx];
+            <iframe src="@frame.Url"
+                    class="kiosk-iframe"
+                    title="@frame.Title"
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups">
+            </iframe>
+        }
+
+        <div class="kiosk-exit">
+            <MudIconButton Icon="@Icons.Material.Filled.GridView"
+                           Color="Color.Default"
+                           Size="Size.Small"
+                           Title="Sortir del kiosk"
+                           OnClick='() => Nav.NavigateTo("/")' />
+        </div>
+    }
+</div>
+
+@code {
+    private List<FrameItem>? _frames;
+    private int _focusIdx = 0;
+    private Timer? _rotateTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var profile = await ConfigService.GetActiveProfileAsync();
+        _frames = profile.EnabledFrames;
+
+        if (_frames.Count > 1)
+            _rotateTimer = new Timer(_ => InvokeAsync(Rotate), null, 30_000, 30_000);
+    }
+
+    private void Rotate()
+    {
+        _focusIdx = (_focusIdx + 1) % (_frames?.Count ?? 1);
+        StateHasChanged();
+    }
+
+    public void Dispose() => _rotateTimer?.Dispose();
+}

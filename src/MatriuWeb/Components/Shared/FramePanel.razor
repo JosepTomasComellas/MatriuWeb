@@ -1,0 +1,107 @@
+@rendermode InteractiveServer
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<div class="frame-body @(Small ? "frame-body--small" : "")">
+    @if (_state == FrameState.Loading)
+    {
+        <div class="frame-overlay">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Small" />
+            <span class="frame-overlay-text">Carregant...</span>
+        </div>
+    }
+    else if (_state == FrameState.Error)
+    {
+        <div class="frame-overlay frame-overlay--error">
+            <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Color="Color.Error" />
+            <span class="frame-overlay-text">@_errorMessage</span>
+            <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Default"
+                       OnClick="() => JS.InvokeVoidAsync(""open"", Frame.Url, ""_blank"")">
+                Obrir en nova pestanya
+            </MudButton>
+        </div>
+    }
+    else if (_state == FrameState.Blocked)
+    {
+        <div class="frame-overlay frame-overlay--blocked">
+            <MudIcon Icon="@Icons.Material.Filled.Block" Color="Color.Warning" />
+            <span class="frame-overlay-text">Bloquejat per X-Frame-Options</span>
+            <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Default"
+                       OnClick="() => JS.InvokeVoidAsync(""open"", Frame.Url, ""_blank"")">
+                Obrir en nova pestanya
+            </MudButton>
+        </div>
+    }
+
+    <div class="frame-status-dot frame-status-dot--@_state.ToString().ToLower()"></div>
+
+    <iframe src="@_iframeSrc"
+            class="frame-iframe @(_state == FrameState.Ok ? "" : "frame-iframe--hidden")"
+            @ref="_iframeRef"
+            title="@Frame.Title"
+            loading="lazy"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups">
+    </iframe>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public FrameItem Frame { get; set; } = null!;
+    [Parameter] public bool Paused { get; set; }
+    [Parameter] public bool Small { get; set; }
+
+    private enum FrameState { Loading, Ok, Error, Blocked, Slow }
+
+    private FrameState _state = FrameState.Loading;
+    private string _iframeSrc = string.Empty;
+    private string _errorMessage = string.Empty;
+    private ElementReference _iframeRef;
+    private Timer? _refreshTimer;
+
+    protected override void OnInitialized()
+    {
+        _iframeSrc = Frame.Url;
+        _state = FrameState.Loading;
+        ScheduleRefresh();
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (Paused)
+            _refreshTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+        else
+            ScheduleRefresh();
+    }
+
+    private void ScheduleRefresh()
+    {
+        if (Frame.RefreshSeconds <= 0 || Small) return;
+        var ms = Frame.RefreshSeconds * 1000;
+        _refreshTimer?.Dispose();
+        _refreshTimer = new Timer(_ => InvokeAsync(Reload), null, ms, ms);
+    }
+
+    private void Reload()
+    {
+        _state = FrameState.Loading;
+        // Forçar reload canviant la src amb timestamp
+        _iframeSrc = $"{Frame.Url}{(Frame.Url.Contains('?') ? "&" : "?")}t={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+        StateHasChanged();
+    }
+
+    // L'estat real es detecta via JS (onload/onerror); aquí el simulem Ok per defecte
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await Task.Delay(800); // breu espera per permetre la càrrega
+            _state = FrameState.Ok;
+            StateHasChanged();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _refreshTimer?.Dispose();
+        await Task.CompletedTask;
+    }
+}

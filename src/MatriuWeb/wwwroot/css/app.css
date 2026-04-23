@@ -1,0 +1,259 @@
+/* =============================================
+   MatriuWeb — CSS principal
+   Família visual: AutoCo (tema fosc, ardosia)
+   ============================================= */
+
+:root {
+    --mw-bg:        #020617;
+    --mw-surface:   #1e293b;
+    --mw-topbar:    #0f172a;
+    --mw-border:    rgba(255, 255, 255, 0.07);
+    --mw-text:      #f1f5f9;
+    --mw-text-muted:#94a3b8;
+    --mw-accent:    #3b82f6;
+    --mw-success:   #22c55e;
+    --mw-warning:   #f59e0b;
+    --mw-error:     #ef4444;
+    --mw-radius:    8px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--mw-bg);
+    color: var(--mw-text);
+    font-family: Roboto, sans-serif;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* =====================
+   Grid de frames
+   ===================== */
+
+.frame-grid {
+    overflow: hidden;
+}
+
+.frame-card {
+    background: var(--mw-surface);
+    border: 1px solid var(--mw-border);
+    border-radius: var(--mw-radius);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    transition: border-color 0.2s;
+}
+
+.frame-card:hover {
+    border-color: rgba(255, 255, 255, 0.14);
+}
+
+.frame-card--focused {
+    height: 100%;
+}
+
+.frame-card--small {
+    cursor: pointer;
+    opacity: 0.75;
+    transition: opacity 0.2s;
+}
+
+.frame-card--small:hover {
+    opacity: 1;
+}
+
+/* =====================
+   Capçalera del frame
+   ===================== */
+
+.frame-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px;
+    background: var(--mw-topbar);
+    border-bottom: 1px solid var(--mw-border);
+    min-height: 32px;
+    flex-shrink: 0;
+}
+
+.frame-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--mw-text-muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.frame-title--small {
+    font-size: 10px;
+}
+
+.frame-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+/* =====================
+   Cos del frame (iframe)
+   ===================== */
+
+.frame-body {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+    background: var(--mw-bg);
+}
+
+.frame-body--small {
+    max-height: 120px;
+}
+
+.frame-iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+}
+
+.frame-iframe--hidden {
+    opacity: 0;
+}
+
+/* =====================
+   Overlays d'estat
+   ===================== */
+
+.frame-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(2, 6, 23, 0.85);
+    z-index: 10;
+}
+
+.frame-overlay-text {
+    font-size: 12px;
+    color: var(--mw-text-muted);
+    text-align: center;
+    max-width: 200px;
+}
+
+.frame-overlay--error   { border-top: 2px solid var(--mw-error); }
+.frame-overlay--blocked { border-top: 2px solid var(--mw-warning); }
+
+/* =====================
+   Indicador d'estat (punt)
+   ===================== */
+
+.frame-status-dot {
+    position: absolute;
+    top: 6px;
+    left: 8px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    z-index: 5;
+}
+
+.frame-status-dot--ok      { background: var(--mw-success); }
+.frame-status-dot--loading { background: var(--mw-accent); animation: pulse 1s infinite; }
+.frame-status-dot--error   { background: var(--mw-error); }
+.frame-status-dot--blocked { background: var(--mw-warning); }
+.frame-status-dot--slow    { background: var(--mw-warning); }
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.3; }
+}
+
+/* =====================
+   Vista enfocada
+   ===================== */
+
+.focus-layout {
+    display: grid;
+    grid-template-columns: 1fr 220px;
+    gap: 8px;
+    padding: 8px;
+    height: calc(100vh - 48px);
+}
+
+.focus-main {
+    overflow: hidden;
+}
+
+.focus-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+}
+
+/* =====================
+   Mode Kiosk
+   ===================== */
+
+.kiosk-root {
+    position: fixed;
+    inset: 0;
+    background: var(--mw-bg);
+    z-index: 9999;
+}
+
+.kiosk-iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+.kiosk-exit {
+    position: fixed;
+    top: 8px;
+    right: 8px;
+    z-index: 10000;
+    background: rgba(15, 23, 42, 0.7);
+    border-radius: var(--mw-radius);
+    backdrop-filter: blur(4px);
+}
+
+/* =====================
+   Scrollbars
+   ===================== */
+
+::-webkit-scrollbar       { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
+
+/* =====================
+   Responsive
+   ===================== */
+
+@media (max-width: 768px) {
+    .focus-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr auto;
+    }
+    .focus-sidebar {
+        flex-direction: row;
+        overflow-x: auto;
+        overflow-y: hidden;
+        max-height: 120px;
+    }
+    .frame-card--small {
+        min-width: 160px;
+    }
+}

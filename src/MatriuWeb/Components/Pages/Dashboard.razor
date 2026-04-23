@@ -1,0 +1,117 @@
+@page "/"
+@page "/dashboard"
+@rendermode InteractiveServer
+@inject IFrameConfigurationService ConfigService
+@inject IDashboardStateService DashState
+@implements IDisposable
+
+<PageTitle>MatriuWeb — Dashboard</PageTitle>
+
+@if (_loading)
+{
+    <MudGrid Style="padding:16px; height:calc(100vh - 48px);">
+        @for (int i = 0; i < 4; i++)
+        {
+            <MudItem xs="6">
+                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="300px" />
+            </MudItem>
+        }
+    </MudGrid>
+}
+else if (_profile != null)
+{
+    var frames = _profile.EnabledFrames;
+    var focused = DashState.FocusedFrameId;
+
+    @if (focused == null)
+    {
+        <div class="frame-grid" style="@GridStyle(frames.Count)">
+            @foreach (var frame in frames)
+            {
+                <div class="frame-card">
+                    <div class="frame-header">
+                        <span class="frame-title">@frame.Title</span>
+                        <div class="frame-actions">
+                            <MudIconButton Icon="@Icons.Material.Filled.OpenInFull"
+                                           Size="Size.Small" Color="Color.Default"
+                                           Title="Enfocar"
+                                           OnClick="() => DashState.FocusFrame(frame.Id)" />
+                            <MudIconButton Icon="@Icons.Material.Filled.OpenInNew"
+                                           Size="Size.Small" Color="Color.Default"
+                                           Title="Obrir en nova pestanya"
+                                           OnClick="() => OpenExternal(frame.Url)" />
+                        </div>
+                    </div>
+                    <FramePanel Frame="@frame" Paused="@DashState.IsRefreshPaused" />
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        var main = frames.FirstOrDefault(f => f.Id == focused);
+        var rest = frames.Where(f => f.Id != focused).ToList();
+
+        <div class="focus-layout">
+            <div class="focus-main">
+                @if (main != null)
+                {
+                    <div class="frame-card frame-card--focused">
+                        <div class="frame-header">
+                            <span class="frame-title">@main.Title</span>
+                            <MudIconButton Icon="@Icons.Material.Filled.OpenInNew"
+                                           Size="Size.Small" Color="Color.Default"
+                                           OnClick="() => OpenExternal(main.Url)" />
+                        </div>
+                        <FramePanel Frame="@main" Paused="@DashState.IsRefreshPaused" />
+                    </div>
+                }
+            </div>
+            <div class="focus-sidebar">
+                @foreach (var frame in rest)
+                {
+                    <div class="frame-card frame-card--small" @onclick="() => DashState.FocusFrame(frame.Id)">
+                        <div class="frame-header">
+                            <span class="frame-title frame-title--small">@frame.Title</span>
+                        </div>
+                        <FramePanel Frame="@frame" Paused="true" Small="true" />
+                    </div>
+                }
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private FrameProfile? _profile;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        DashState.StateChanged += Refresh;
+        _profile = await ConfigService.GetActiveProfileAsync();
+        _loading = false;
+    }
+
+    private void Refresh() => InvokeAsync(async () =>
+    {
+        _profile = await ConfigService.GetActiveProfileAsync();
+        StateHasChanged();
+    });
+
+    private static string GridStyle(int count) => count switch
+    {
+        1 => "display:grid; grid-template-columns:1fr; gap:8px; padding:8px; height:calc(100vh - 48px);",
+        2 => "display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:8px; height:calc(100vh - 48px);",
+        3 => "display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:8px; padding:8px; height:calc(100vh - 48px);",
+        4 => "display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:8px; padding:8px; height:calc(100vh - 48px);",
+        _ => $"display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; padding:8px; height:calc(100vh - 48px);"
+    };
+
+    private void OpenExternal(string url)
+    {
+        // JS interop per obrir en nova pestanya — implementat a app.js
+    }
+
+    public void Dispose() => DashState.StateChanged -= Refresh;
+}

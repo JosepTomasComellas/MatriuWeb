@@ -1,0 +1,92 @@
+@inherits LayoutComponentBase
+@inject IDashboardStateService DashState
+@inject NavigationManager Nav
+@implements IDisposable
+
+<MudThemeProvider Theme="_theme" IsDarkMode="true" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="0" Dense="true" Style="background:#0f172a; border-bottom:1px solid rgba(255,255,255,0.07);">
+        <MudIconButton Icon="@Icons.Material.Filled.GridView"
+                       Color="Color.Default"
+                       Title="Dashboard"
+                       OnClick='() => Nav.NavigateTo("/")' />
+
+        <MudText Typo="Typo.subtitle2"
+                 Style="color:#94a3b8; font-weight:600; letter-spacing:0.05em; margin-left:4px;">
+            MATRIUWEB
+        </MudText>
+
+        <MudSpacer />
+
+        @if (DashState.FocusedFrameId != null)
+        {
+            <MudChip T="string" Color="Color.Info" Size="Size.Small" Style="margin-right:8px;">
+                Vista enfocada
+            </MudChip>
+            <MudIconButton Icon="@Icons.Material.Filled.GridView"
+                           Color="Color.Default"
+                           Title="Tornar a la matriu"
+                           OnClick="() => DashState.FocusFrame(null)" />
+        }
+
+        <MudIconButton Icon="@(DashState.IsRefreshPaused ? Icons.Material.Filled.PlayArrow : Icons.Material.Filled.Pause)"
+                       Color="Color.Default"
+                       Title="@(DashState.IsRefreshPaused ? "Reprendre refresh" : "Pausar refresh")"
+                       OnClick="DashState.ToggleRefresh" />
+
+        <MudIconButton Icon="@Icons.Material.Filled.Settings"
+                       Color="Color.Default"
+                       Title="Configuració"
+                       OnClick='() => Nav.NavigateTo("/config")' />
+
+        <MudIconButton Icon="@Icons.Material.Filled.Fullscreen"
+                       Color="Color.Default"
+                       Title="Mode kiosk"
+                       OnClick='() => Nav.NavigateTo("/kiosk")' />
+    </MudAppBar>
+
+    <MudMainContent Style="background:#020617; min-height:100vh; padding-top:48px;">
+        @Body
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private MudTheme _theme = new()
+    {
+        PaletteDark = new PaletteDark
+        {
+            Primary         = "#3b82f6",
+            PrimaryDarken   = "#1d4ed8",
+            Secondary       = "#94a3b8",
+            SecondaryDarken = "#64748b",
+            AppbarBackground  = "#0f172a",
+            Background      = "#020617",
+            BackgroundGray  = "#0f172a",
+            Surface         = "#1e293b",
+            DrawerBackground  = "#0f172a",
+            TextPrimary     = "#f1f5f9",
+            TextSecondary   = "#94a3b8",
+            ActionDefault   = "#94a3b8",
+            LinesDefault    = "rgba(255,255,255,0.07)",
+            TableLines      = "rgba(255,255,255,0.07)",
+            Divider         = "rgba(255,255,255,0.07)",
+            Success         = "#22c55e",
+            Warning         = "#f59e0b",
+            Error           = "#ef4444",
+            Info            = "#38bdf8",
+        }
+    };
+
+    protected override void OnInitialized()
+    {
+        DashState.StateChanged += OnStateChanged;
+    }
+
+    private void OnStateChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => DashState.StateChanged -= OnStateChanged;
+}

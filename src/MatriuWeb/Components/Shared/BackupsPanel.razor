@@ -1,0 +1,97 @@
+@rendermode InteractiveServer
+@inject IBackupService BackupService
+@inject IDialogService DialogService
+
+<MudStack Spacing="3">
+    <div style="display:flex; gap:12px; align-items:center;">
+        <MudButton StartIcon="@Icons.Material.Filled.Save" Variant="Variant.Outlined"
+                   Color="Color.Primary" Size="Size.Small" OnClick="CreateBackup">
+            Crear backup ara
+        </MudButton>
+        <MudIconButton Icon="@Icons.Material.Filled.Refresh" Size="Size.Small"
+                       OnClick="LoadBackups" />
+    </div>
+
+    @if (_backups.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Style="color:#64748b;">No hi ha backups disponibles.</MudText>
+    }
+    else
+    {
+        <MudTable Items="_backups" Dense="true" Hover="true"
+                  Style="background:#0f172a; border:1px solid rgba(255,255,255,0.07);">
+            <HeaderContent>
+                <MudTh>Fitxer</MudTh>
+                <MudTh>Acció</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>
+                    <MudText Typo="Typo.body2" Style="font-family:monospace; color:#94a3b8;">@context</MudText>
+                </MudTd>
+                <MudTd>
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning"
+                               OnClick="() => RestoreBackup(context)">
+                        Restaurar
+                    </MudButton>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <MudAlert Severity="@_severity">@_message</MudAlert>
+    }
+</MudStack>
+
+@code {
+    [Parameter] public EventCallback OnRestored { get; set; }
+    [Parameter] public EventCallback<string> OnError { get; set; }
+
+    private List<string> _backups = new();
+    private string _message = string.Empty;
+    private Severity _severity = Severity.Normal;
+
+    protected override async Task OnInitializedAsync() => await LoadBackups();
+
+    private async Task LoadBackups()
+    {
+        _backups = (await BackupService.ListBackupsAsync()).ToList();
+    }
+
+    private async Task CreateBackup()
+    {
+        try
+        {
+            await BackupService.CreateBackupAsync();
+            _message = "Backup creat correctament";
+            _severity = Severity.Success;
+            await LoadBackups();
+        }
+        catch (Exception ex)
+        {
+            _message = ex.Message;
+            _severity = Severity.Error;
+        }
+    }
+
+    private async Task RestoreBackup(string fileName)
+    {
+        var confirmed = await DialogService.ShowMessageBox("Restaurar backup",
+            $"Restaurar '{fileName}'? La configuració actual es farà servir com a backup previ.", "Sí", "Cancel·lar");
+        if (confirmed != true) return;
+        try
+        {
+            await BackupService.RestoreBackupAsync(fileName);
+            _message = "Backup restaurat";
+            _severity = Severity.Success;
+            await OnRestored.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _message = ex.Message;
+            _severity = Severity.Error;
+            await OnError.InvokeAsync(ex.Message);
+        }
+    }
+}

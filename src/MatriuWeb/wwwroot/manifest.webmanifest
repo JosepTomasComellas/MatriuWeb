@@ -1,0 +1,14 @@
+{
+  "name": "MatriuWeb",
+  "short_name": "MatriuWeb",
+  "description": "Dashboard de monitorització amb iframes configurables",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#0f172a",
+  "orientation": "any",
+  "icons": [
+    { "src": "images/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any maskable" },
+    { "src": "images/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any maskable" }
+  ]
+}

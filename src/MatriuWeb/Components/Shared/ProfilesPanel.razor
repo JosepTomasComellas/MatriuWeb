@@ -1,0 +1,172 @@
+@rendermode InteractiveServer
+@inject IFrameConfigurationService ConfigService
+@inject IDialogService DialogService
+
+<MudStack Spacing="3">
+    <!-- Selector de perfil actiu -->
+    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <MudSelect T="string" Label="Perfil actiu" Value="@Config.ActiveProfileId"
+                   ValueChanged="ChangeActiveProfile"
+                   Style="max-width:320px;"
+                   Variant="Variant.Outlined" Dense="true">
+            @foreach (var p in Config.Profiles)
+            {
+                <MudSelectItem Value="@p.Id">@p.Name</MudSelectItem>
+            }
+        </MudSelect>
+        <MudButton StartIcon="@Icons.Material.Filled.Add" Size="Size.Small"
+                   Variant="Variant.Outlined" Color="Color.Primary"
+                   OnClick="AddProfile">Nou perfil</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.ContentCopy" Size="Size.Small"
+                   Variant="Variant.Outlined"
+                   OnClick="DuplicateActive">Duplicar</MudButton>
+        @if (Config.Profiles.Count > 1)
+        {
+            <MudButton StartIcon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                       Variant="Variant.Outlined" Color="Color.Error"
+                       OnClick="DeleteActive">Eliminar</MudButton>
+        }
+    </div>
+
+    @if (_activeProfile != null)
+    {
+        <!-- Edició del nom del perfil -->
+        <MudTextField @bind-Value="_activeProfile.Name" Label="Nom del perfil"
+                      Variant="Variant.Outlined" Dense="true" Style="max-width:320px;" />
+
+        <MudTextField T="int" @bind-Value="_activeProfile.GlobalRefreshSeconds"
+                      Label="Refresh global (s)" Variant="Variant.Outlined"
+                      Dense="true" Style="max-width:200px;" />
+
+        <!-- Llista de frames -->
+        <MudText Typo="Typo.subtitle2" Style="color:#94a3b8; margin-top:8px;">Frames</MudText>
+
+        @foreach (var frame in _activeProfile.Frames.OrderBy(f => f.Order))
+        {
+            <MudCard Style="background:#0f172a; border:1px solid rgba(255,255,255,0.07); margin-bottom:4px;">
+                <MudCardContent Style="padding:12px;">
+                    <MudGrid AlignItems="AlignItems.Center">
+                        <MudItem xs="1">
+                            <MudStack>
+                                <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowUp"
+                                               Size="Size.Small"
+                                               OnClick="() => MoveFrame(frame.Id, -1)" />
+                                <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowDown"
+                                               Size="Size.Small"
+                                               OnClick="() => MoveFrame(frame.Id, 1)" />
+                            </MudStack>
+                        </MudItem>
+                        <MudItem xs="3">
+                            <MudTextField @bind-Value="frame.Title" Label="Títol"
+                                          Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="5">
+                            <MudTextField @bind-Value="frame.Url" Label="URL"
+                                          Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="2">
+                            <MudTextField T="int" @bind-Value="frame.RefreshSeconds" Label="Refresh (s)"
+                                          Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="1" Style="display:flex; align-items:center; gap:4px;">
+                            <MudSwitch @bind-Value="frame.Enabled" Color="Color.Primary" Size="Size.Small" />
+                            @if (_activeProfile.Frames.Count(f => f.Enabled) > 2 || !frame.Enabled)
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                               Size="Size.Small" Color="Color.Error"
+                                               OnClick="() => RemoveFrame(frame.Id)" />
+                            }
+                        </MudItem>
+                    </MudGrid>
+                </MudCardContent>
+            </MudCard>
+        }
+
+        <div style="display:flex; gap:12px; margin-top:8px;">
+            <MudButton StartIcon="@Icons.Material.Filled.Add" Size="Size.Small"
+                       Variant="Variant.Outlined" Color="Color.Primary"
+                       OnClick="AddFrame">Afegir frame</MudButton>
+            <MudButton StartIcon="@Icons.Material.Filled.Save" Size="Size.Small"
+                       Variant="Variant.Filled" Color="Color.Primary"
+                       OnClick="Save">Desar</MudButton>
+        </div>
+    }
+</MudStack>
+
+@code {
+    [Parameter, EditorRequired] public FrameConfig Config { get; set; } = null!;
+    [Parameter] public EventCallback OnSaved { get; set; }
+    [Parameter] public EventCallback<string> OnError { get; set; }
+
+    private FrameProfile? _activeProfile;
+
+    protected override void OnParametersSet()
+    {
+        _activeProfile = Config.Profiles.FirstOrDefault(p => p.Id == Config.ActiveProfileId)
+                         ?? Config.Profiles.FirstOrDefault();
+    }
+
+    private async Task ChangeActiveProfile(string id)
+    {
+        try { await ConfigService.SetActiveProfileAsync(id); await OnSaved.InvokeAsync(); }
+        catch (Exception ex) { await OnError.InvokeAsync(ex.Message); }
+    }
+
+    private async Task AddProfile()
+    {
+        var p = new FrameProfile { Name = "Nou perfil" };
+        p.Frames.Add(new FrameItem { Title = "Frame 1", Url = "https://example.com", Order = 1 });
+        p.Frames.Add(new FrameItem { Title = "Frame 2", Url = "https://example.com", Order = 2 });
+        try { await ConfigService.AddProfileAsync(p); await OnSaved.InvokeAsync(); }
+        catch (Exception ex) { await OnError.InvokeAsync(ex.Message); }
+    }
+
+    private async Task DuplicateActive()
+    {
+        if (_activeProfile == null) return;
+        try { await ConfigService.DuplicateProfileAsync(_activeProfile.Id); await OnSaved.InvokeAsync(); }
+        catch (Exception ex) { await OnError.InvokeAsync(ex.Message); }
+    }
+
+    private async Task DeleteActive()
+    {
+        if (_activeProfile == null) return;
+        var confirmed = await DialogService.ShowMessageBox("Eliminar perfil",
+            $"Eliminar '{_activeProfile.Name}'?", "Sí", "No");
+        if (confirmed != true) return;
+        try { await ConfigService.DeleteProfileAsync(_activeProfile.Id); await OnSaved.InvokeAsync(); }
+        catch (Exception ex) { await OnError.InvokeAsync(ex.Message); }
+    }
+
+    private void AddFrame()
+    {
+        if (_activeProfile == null) return;
+        _activeProfile.Frames.Add(new FrameItem
+        {
+            Title = "Nou frame",
+            Url = "https://",
+            Order = _activeProfile.Frames.Count + 1
+        });
+    }
+
+    private async Task RemoveFrame(string frameId)
+    {
+        if (_activeProfile == null) return;
+        try { await ConfigService.DeleteFrameAsync(_activeProfile.Id, frameId); await OnSaved.InvokeAsync(); }
+        catch (Exception ex) { await OnError.InvokeAsync(ex.Message); }
+    }
+
+    private async Task MoveFrame(string frameId, int direction)
+    {
+        if (_activeProfile == null) return;
+        try { await ConfigService.ReorderFrameAsync(_activeProfile.Id, frameId, direction); await OnSaved.InvokeAsync(); }
+        catch (Exception ex) { await OnError.InvokeAsync(ex.Message); }
+    }
+
+    private async Task Save()
+    {
+        if (_activeProfile == null) return;
+        try { await ConfigService.UpdateProfileAsync(_activeProfile); await OnSaved.InvokeAsync(); }
+        catch (Exception ex) { await OnError.InvokeAsync(ex.Message); }
+    }
+}

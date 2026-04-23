@@ -12,7 +12,8 @@ obj/
 
 # Logs
 *.log
-logs/
+logs/*
+!logs/.gitkeep
 
 # OS
 .DS_Store
@@ -24,8 +25,9 @@ docker-compose.override.yml
 # Env files
 .env
 
-# Data local (important)
+# Data local (important: no versionar dades persistents)
 data/
+!data/config/frame-config.json
 docker-data/
 
 # Certificates

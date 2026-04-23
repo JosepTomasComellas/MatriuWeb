@@ -1,0 +1,72 @@
+@rendermode InteractiveServer
+@inject IFrameConfigurationService ConfigService
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.subtitle2" Style="color:#94a3b8;">Exportar configuració</MudText>
+    <MudButton StartIcon="@Icons.Material.Filled.Download" Variant="Variant.Outlined"
+               Color="Color.Primary" Size="Size.Small" OnClick="Export">
+        Descarregar JSON
+    </MudButton>
+    @if (!string.IsNullOrEmpty(_exportJson))
+    {
+        <MudTextField @bind-Value="_exportJson" Lines="8" ReadOnly="true"
+                      Variant="Variant.Outlined"
+                      Style="font-family:monospace; font-size:12px;" />
+    }
+
+    <MudDivider Style="margin:16px 0;" />
+
+    <MudText Typo="Typo.subtitle2" Style="color:#94a3b8;">Importar configuració</MudText>
+    <MudTextField @bind-Value="_importJson" Label="JSON" Lines="8"
+                  Variant="Variant.Outlined"
+                  Style="font-family:monospace; font-size:12px;" />
+    <MudButton StartIcon="@Icons.Material.Filled.Upload" Variant="Variant.Outlined"
+               Color="Color.Warning" Size="Size.Small" OnClick="Import">
+        Importar i substituir
+    </MudButton>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <MudAlert Severity="@_severity">@_message</MudAlert>
+    }
+</MudStack>
+
+@code {
+    [Parameter, EditorRequired] public FrameConfig Config { get; set; } = null!;
+    [Parameter] public EventCallback OnSaved { get; set; }
+    [Parameter] public EventCallback<string> OnError { get; set; }
+
+    private string _exportJson = string.Empty;
+    private string _importJson = string.Empty;
+    private string _message = string.Empty;
+    private Severity _severity = Severity.Normal;
+
+    private async Task Export()
+    {
+        _exportJson = await ConfigService.ExportJsonAsync();
+    }
+
+    private async Task Import()
+    {
+        if (string.IsNullOrWhiteSpace(_importJson))
+        {
+            _message = "El camp JSON és buit";
+            _severity = Severity.Warning;
+            return;
+        }
+        try
+        {
+            await ConfigService.ImportJsonAsync(_importJson);
+            _message = "Importació completada";
+            _severity = Severity.Success;
+            _importJson = string.Empty;
+            await OnSaved.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _message = ex.Message;
+            _severity = Severity.Error;
+            await OnError.InvokeAsync(ex.Message);
+        }
+    }
+}
