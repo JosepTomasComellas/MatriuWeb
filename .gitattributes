@@ -1,0 +1,15 @@
+# Normalitza finals de línia al repositori
+* text=auto eol=lf
+
+# Scripts de servidor: sempre LF
+*.sh text eol=lf
+
+# Fitxers Windows: CRLF
+*.ps1 text eol=crlf
+
+# Binaris: no tocar
+*.ico  binary
+*.png  binary
+*.jpg  binary
+*.gif  binary
+*.svg  text eol=lf

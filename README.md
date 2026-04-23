@@ -1,6 +1,6 @@
 # MatriuWeb · v0.1.0
 
-Dashboard de monitorització web amb matriu configurable d'iframes. Blazor (.NET 10), MudBlazor, Docker Compose, Nginx, Redis, Prometheus i Grafana. Pensada per funcionar en una LXC Proxmox amb Ubuntu Server 24.
+Dashboard de monitorització web amb matriu configurable d'iframes. Blazor (.NET 10), MudBlazor, Docker Compose, Nginx HTTPS, Redis, Prometheus i Grafana. Desplegada en una LXC Proxmox amb Ubuntu Server 24.
 
 ---
 
@@ -9,11 +9,29 @@ Dashboard de monitorització web amb matriu configurable d'iframes. Blazor (.NET
 | Capa | Tecnologia |
 |------|-----------|
 | Frontend | Blazor Server (.NET 10) + MudBlazor |
-| Reverse proxy | Nginx 1.27 (HTTPS, port 4444) |
-| Cache | Redis 7 (intern, no exposat) |
+| Reverse proxy | Nginx 1.27 — HTTPS, port 4444 |
+| Cache | Redis 7 — intern, no exposat |
 | Persistència | JSON (`data/config/frame-config.json`) |
 | Monitorització | Prometheus + Grafana + node_exporter + cAdvisor + redis-exporter |
-| PWA | Service Worker + manifest.webmanifest |
+| PWA | Service Worker + manifest |
+
+---
+
+## Funcionalitats principals
+
+- **Dashboard configurable** — matriu d'iframes amb layout adaptatiu (1–6+ frames)
+- **Vista enfocada** — frame principal gran + la resta en sidebar lateral
+- **Perfils** — múltiples perfils de configuració, canvi en temps real des de la topbar
+- **Gestió de frames** — afegir, editar, eliminar, reordenar (botons ↑↓), activar/desactivar
+- **Detecció d'estat** — probe HTTP de servidor detecta `X-Frame-Options`/CSP i URLs inaccessibles
+- **Auto-refresh** — global i per frame, pausable des de la topbar
+- **Import/Export** — configuració en JSON, validada abans d'aplicar
+- **Backups** — automàtics en cada desa, amb timestamp; restauració des de la UI
+- **Mode kiosk** — `/kiosk`, pantalla completa, rotació automàtica entre frames
+- **PWA** — instal·lable com a aplicació d'escriptori
+- **Health endpoint** — `/health` en JSON per a healthchecks i Prometheus
+- **Mètriques** — `/metrics` (prometheus-net) per a integració Grafana
+- **Grafana integrat** — accessible via `/grafana/`, embedding permès
 
 ---
 
@@ -21,8 +39,9 @@ Dashboard de monitorització web amb matriu configurable d'iframes. Blazor (.NET
 
 - Ubuntu Server 24 LTS
 - Docker + Docker Compose plugin
+- Git
 - Certificats SSL a `nginx/certs/server.crt` i `nginx/certs/server.key`
-- Ruta de desplegament: `/docker/MatriuWeb`
+- Ruta: `/docker/MatriuWeb`
 
 ---
 
@@ -30,98 +49,100 @@ Dashboard de monitorització web amb matriu configurable d'iframes. Blazor (.NET
 
 ```
 MatriuWeb/
-├── compose.yaml                  # Stack Docker complet
-├── .env.example                  # Variables d'entorn (còpia a .env)
+├── compose.yaml                      # Stack Docker complet
+├── .env.example                      # Variables d'entorn de referència
+├── .gitattributes                    # Normalització de finals de línia
 ├── .gitignore
-├── README.md
-├── CLAUDE.md                     # Context de l'agent
-├── ARCHITECTURE.md
-├── RELEASE.md
+├── README.md · CLAUDE.md · ARCHITECTURE.md · RELEASE.md · BOOTSTRAP.md
 ├── scripts/
-│   ├── bootstrap-lxc.sh          # Prepara la LXC (Docker + carpetes)
-│   ├── deploy.sh                 # git pull + docker compose up
-│   ├── backup-config.sh          # Backup manual de la configuració
-│   ├── restore-config.sh         # Restauració des de backup
-│   ├── logs.sh                   # Consulta de logs
-│   ├── check.ps1                 # Validació local (Windows/PowerShell)
-│   └── release.ps1               # Script de release (Windows/PowerShell)
+│   ├── bootstrap-lxc.sh             # Prepara la LXC (Docker + carpetes)
+│   ├── deploy.sh                    # git pull + docker compose up
+│   ├── backup-config.sh             # Backup manual
+│   ├── restore-config.sh            # Restauració des de backup
+│   ├── logs.sh                      # Consulta de logs
+│   ├── nginx-create-htpasswd.sh     # Genera .htpasswd per basic auth /config
+│   ├── check.ps1                    # Validació local (Windows/PowerShell)
+│   └── release.ps1                  # Script de release (Windows/PowerShell)
 ├── nginx/
-│   ├── conf.d/matriuweb.conf     # Configuració Nginx
-│   └── certs/                    # Certificats SSL (no al git)
+│   ├── conf.d/matriuweb.conf        # HTTPS, rate limiting, gzip, basic auth
+│   └── certs/                       # Certificats SSL (no al git)
 ├── monitoring/
 │   ├── prometheus/prometheus.yml
 │   └── grafana/
 │       ├── provisioning/
-│       │   ├── datasources/      # Datasource Prometheus auto-provisionat
-│       │   └── dashboards/       # Proveïdor de dashboards
-│       └── dashboards/           # JSON dels dashboards
-├── data/                         # Dades persistents (no al git)
+│       │   ├── datasources/         # Prometheus auto-provisionat
+│       │   └── dashboards/          # Proveïdor de dashboards
+│       └── dashboards/
+│           ├── host.json            # CPU, RAM, disc, xarxa (node_exporter)
+│           ├── docker.json          # CPU/RAM per contenidor (cAdvisor)
+│           ├── redis.json           # Clients, memòria, hit rate
+│           └── overview.json        # Vista general de la plataforma
+├── data/                            # Dades persistents (no al git)
 │   ├── config/
-│   │   ├── frame-config.json     # Configuració principal
-│   │   └── backups/              # Còpies de seguretat
-│   ├── redis/
-│   ├── grafana/
-│   └── prometheus/
-├── logs/                         # Logs (no al git)
+│   │   ├── frame-config.json        # Configuració principal (versionada)
+│   │   └── backups/
+│   ├── redis/ · grafana/ · prometheus/
 └── src/
-    └── MatriuWeb/                # Projecte Blazor
+    └── MatriuWeb/
         ├── Components/
-        │   ├── Layout/
+        │   ├── Layout/MainLayout.razor    # Topbar, tema fosc, selector de perfil
         │   ├── Pages/
+        │   │   ├── Dashboard.razor        # Grid d'iframes + vista enfocada
+        │   │   ├── Config.razor           # Perfils, frames, import/export, backups
+        │   │   ├── Kiosk.razor            # Pantalla completa amb rotació
+        │   │   └── Health.razor           # Estat visual dels components
         │   └── Shared/
-        ├── Models/
-        ├── Services/
-        ├── wwwroot/
-        ├── Program.cs
-        ├── appsettings.json
-        └── MatriuWeb.csproj
+        │       ├── FramePanel.razor       # Iframe + detecció d'estat + overlays
+        │       ├── ProfilesPanel.razor    # CRUD de perfils i frames
+        │       ├── ImportExportPanel.razor
+        │       └── BackupsPanel.razor
+        ├── Models/   FrameConfig · FrameProfile · FrameItem · HealthStatus
+        ├── Services/ JsonPersistence · Backup · FrameConfiguration ·
+        │             Redis · DashboardState · IframeStatus · Health
+        ├── wwwroot/css/app.css            # Tema fosc família AutoCo
+        └── wwwroot/js/app.js             # JS interop: initFrame, openTab
 ```
 
 ---
 
-## Execució local (Windows)
+## Primera posada en marxa (LXC)
 
-```powershell
-# Clonar o obrir el repositori
-cd D:\Claude\MatriuWeb
-
-# Compilar i verificar
-.\scripts\check.ps1
-
-# Executar l'aplicació (requereix Redis local o Docker)
-cd src\MatriuWeb
-dotnet run
-```
-
-Per a l'stack complet en local amb Docker:
-```powershell
-docker compose up -d --build
-```
-Accés: `https://localhost:4444` (requereix certificats locals)
-
----
-
-## Desplegament a la LXC
-
-### 1. Primera vegada
 ```bash
-bash /tmp/bootstrap-lxc.sh      # Instal·la Docker i crea carpetes
+# 1. Pujar el script de bootstrap a la LXC i executar-lo
+bash bootstrap-lxc.sh
+
+# 2. Clonar el repositori
 cd /docker/MatriuWeb
-git clone <url-del-repo> .
+git clone https://github.com/<usuari>/MatriuWeb.git .
+
+# 3. Col·locar els certificats SSL
+#    nginx/certs/server.crt  (cadena completa)
+#    nginx/certs/server.key
+
+# 4. Copiar i ajustar les variables d'entorn (opcional)
 cp .env.example .env
-# Col·loca els certificats:
-#   nginx/certs/server.crt
-#   nginx/certs/server.key
+
+# 5. Arrencar l'stack
 docker compose up -d --build
+
+# 6. Verificar
+docker compose ps
+curl -k https://localhost:4444/health
 ```
 
-### 2. Actualitzacions
+Grafana: `https://tuteapps.ddns.net:4444/grafana/` — credencials inicials `admin/admin` (**canvia-les!**)
+
+---
+
+## Actualitzacions
+
 ```bash
 cd /docker/MatriuWeb
 git pull
 docker compose up -d --build
 ```
-O directament:
+
+O amb el script:
 ```bash
 bash scripts/deploy.sh
 ```
@@ -130,151 +151,135 @@ bash scripts/deploy.sh
 
 ## Configuració SSL / Nginx
 
-Els certificats han d'estar a `nginx/certs/`:
+Els certificats han d'estar a `nginx/certs/` (no s'inclouen al repositori):
 - `server.crt` — certificat (cadena completa si cal)
 - `server.key` — clau privada
 
-Aquesta carpeta **no s'inclou al repositori** (`.gitignore`).
+Nginx escolta al port `4444` amb TLS 1.2+. Headers de seguretat inclosos (HSTS, X-Content-Type-Options, etc.).
 
-La configuració de Nginx escolta al port `4444` amb HTTPS i fa de proxy invers cap al servei Blazor intern al port `8080`.
-
-Grafana és accessible via `/grafana/` (intern, via proxy Nginx).
+**Protecció de /config** (opcional) — basic auth:
+```bash
+bash scripts/nginx-create-htpasswd.sh admin "LaTevaContrasenya"
+```
+Descomenta les línies `auth_basic` a `nginx/conf.d/matriuweb.conf` i reinicia Nginx.
 
 ---
 
 ## Persistència JSON
 
-La configuració de l'aplicació es desa a:
 ```
-data/config/frame-config.json
-```
-
-Regles de robustesa:
-- Si el fitxer no existeix → es crea una configuració mínima per defecte (2 frames)
-- Si el fitxer és corrupte → intenta restaurar l'últim backup vàlid de `data/config/backups/`
-- Si no hi ha backup vàlid → crea una configuració mínima segura i registra l'error
-
-**Redis NO és la font de veritat.** Redis és cache i pot fallar sense perdre dades.
-
----
-
-## Redis
-
-- Servei intern (`redis:6379`), no exposat públicament
-- Si Redis no arranca o és inaccessible, l'aplicació segueix funcionant (degraded mode)
-- Dades persistides amb `appendonly yes`
-
----
-
-## PWA
-
-MatriuWeb és instal·lable com a PWA:
-- Manifest: `wwwroot/manifest.webmanifest`
-- Service worker: caché d'assets estàtics propis
-- Els iframes externs **no** es garanteixen offline (depenen de les seves URLs)
-- Compatible amb mode kiosk
-
----
-
-## Monitorització amb Grafana / Prometheus
-
-### Accés
-- Grafana: `https://tuteapps.ddns.net:4444/grafana/` (credencials: `admin/admin` — canvia-les!)
-- Prometheus (intern): `http://prometheus:9090` (no exposat públicament)
-
-### Exportadors inclosos
-| Servei | Port intern | Mètriques |
-|--------|-------------|-----------|
-| node_exporter | 9100 | CPU, memòria, disc, xarxa del host |
-| cAdvisor | 8080 | Contenidors Docker |
-| redis-exporter | 9121 | Connexions, memòria, comandes Redis |
-
-### Embedding de Grafana en iframes
-Grafana ja té `GF_SECURITY_ALLOW_EMBEDDING=true` al `compose.yaml`.
-
-Per permetre embedding des d'un origen extern, configura a Grafana:
-```ini
-[security]
-allow_embedding = true
-cookie_secure = true
-cookie_samesite = none
-```
-O via env vars al compose:
-```yaml
-GF_SECURITY_COOKIE_SAMESITE: none
-GF_SECURITY_COOKIE_SECURE: "true"
+data/config/frame-config.json    ← font de veritat
+data/config/backups/             ← backups automàtics (timestamp)
 ```
 
-Limitació: alguns navegadors bloquegen cookies de tercers en iframes. Grafana és accessible directament via `/grafana/` des del mateix domini, la qual cosa evita aquest problema.
+Robustesa:
+- Si el fitxer no existeix → configuració mínima per defecte (2 frames)
+- Si és corrupte → restauració automàtica de l'últim backup vàlid
+- Mínim de 2 frames sempre garantit
 
-### Consideracions LXC / Proxmox
-- cAdvisor i node_exporter poden tenir mètriques limitades si la LXC no té accés complet a cgroups
-- Per a cgroups v2, verifica que la LXC tingui `features: nesting=1` al Proxmox
-- `node_exporter` munta el filesystem de l'host com a read-only
+**Redis NO és la font de veritat.** Falla en silenci sense perdre dades.
 
 ---
 
 ## Backups i restauració
 
-### Backup automàtic
-Cada operació de desar configuració des de la UI crea un backup automàtic a `data/config/backups/`.
-
-### Backup manual
 ```bash
+# Backup manual
 bash scripts/backup-config.sh
-```
 
-### Llistar backups
-```bash
+# Llistar backups
 bash scripts/restore-config.sh
-```
 
-### Restaurar un backup
-```bash
+# Restaurar un backup concret
 bash scripts/restore-config.sh frame-config-20250101-120000.json
 docker compose restart web
 ```
 
-### Recuperació de JSON corrupte
-Si el fitxer principal és corrupte i no es pot restaurar des de la UI:
-```bash
-bash scripts/restore-config.sh  # llistat de backups disponibles
-bash scripts/restore-config.sh <nom-del-backup>
-docker compose restart web
-```
+Des de la UI: `Config → Backups → Restaurar`.
+
+---
+
+## Monitorització (Grafana + Prometheus)
+
+| Dashboard | UID | Contingut |
+|-----------|-----|-----------|
+| Overview | `mw-overview` | CPU/RAM host, HTTP req/s, serveis actius |
+| Host / LXC | `mw-host` | CPU, RAM, disc, xarxa, load |
+| Contenidors Docker | `mw-docker` | CPU/RAM/xarxa per contenidor |
+| Redis | `mw-redis` | Clients, memòria, hit rate, comandes/s |
+
+Els dashboards s'autoprovisionen en arrencar Grafana.
+
+**Embedding de Grafana en iframes:**
+Grafana ja té `GF_SECURITY_ALLOW_EMBEDDING=true` i `cookie_samesite=none`. Des de MatriuWeb, afegeix una URL com `https://tuteapps.ddns.net:4444/grafana/d/mw-overview` com a frame.
+
+**Consideracions LXC/Proxmox:**
+- Activa `nesting=1` a les opcions de l'LXC al Proxmox per a cAdvisor
+- node_exporter munta el filesystem del host com a read-only a `/host`
+- Les mètriques de cgroups poden tenir limitacions si la LXC no té accés complet
+
+---
+
+## PWA
+
+MatriuWeb és instal·lable com a PWA (escriptori, tauleta, mòbil):
+- Assets propis en cache (CSS, JS, MudBlazor)
+- Els iframes externs **no** es garanteixen offline
+- Compatible amb mode kiosk
 
 ---
 
 ## Seguretat
 
-- `/config` s'ha de protegir a nivell de Nginx (basic auth o restricció IP)
-  - Documentació a `nginx/conf.d/matriuweb.conf`
-- Redis no s'exposa públicament
-- Grafana i Prometheus no s'exposen directament (accessibles via proxy intern)
-- Canvia les credencials per defecte de Grafana en producció
+- `/config` protegit per rate limiting (5r/s) i opció de basic auth
+- Redis i exporters de monitorització a la xarxa `internal` (no accessibles des de l'exterior)
+- Grafana i Prometheus no s'exposen directament (accessible via `/grafana/`)
+- TLS 1.2+ amb cipher suites moderns
+- HSTS actiu
 
 ---
 
-## Flux d'actualització des de GitHub
+## Flux de treball (resum)
 
 ```
-[Desenvolupament local Windows]
-    → scripts/check.ps1
-    → git commit + git push
-        → [LXC: git pull + docker compose up -d --build]
+[Windows — PowerShell]
+  .\scripts\check.ps1              # validació local
+  git add . && git commit -m "..."
+  git push
+
+[LXC — manual]
+  cd /docker/MatriuWeb
+  git pull
+  docker compose up -d --build
 ```
 
-El desplegament al servidor és **sempre manual**. No hi ha CI/CD automàtic.
+El desplegament és **sempre manual**. No hi ha CI/CD automàtic.
 
 ---
 
 ## Changelog
 
-### v0.1.0
-- Estructura inicial del repositori
-- Stack Docker complet (Blazor, Nginx, Redis, Prometheus, Grafana)
-- Esquelet Blazor amb tema fosc (família visual AutoCo)
-- Serveis de persistència JSON, backups, cache Redis
-- Dashboard, Config, Kiosk i Health
-- PWA configurable
-- Scripts operacionals
+### v0.1.0 — 2026-04-23
+#### Nova funcionalitat
+- Dashboard configurable amb matriu d'iframes (1–6+ frames, layout adaptatiu)
+- Vista enfocada amb sidebar
+- Múltiples perfils de configuració, selector a la topbar
+- Gestió de frames: CRUD, reordenació, activació/desactivació
+- Detecció d'estat d'iframe: probe HTTP servidor (X-Frame-Options, CSP, inaccessible)
+- Overlays visuals per estat error/bloqueig/càrrega
+- Import/export de configuració en JSON
+- Backups automàtics amb timestamp; restauració des de la UI i scripts
+- Mode kiosk `/kiosk` amb rotació automàtica i controls de navegació
+- PWA instal·lable (manifest + service worker)
+- Endpoints `/health` i `/metrics` per Prometheus
+- Dashboards Grafana provisionats: overview, host, docker, redis
+
+#### Infraestructura
+- Nginx amb TLS 1.2+, gzip, rate limiting, basic auth per `/config`
+- Redis amb maxmemory 128mb LRU
+- Xarxa Docker `internal:true` per a serveis interns
+- Prometheus retention 30 dies
+
+#### Família visual
+- Tema fosc basat en AutoCo (ardosia #020617/#1e293b/#0f172a, accent blau #3b82f6)
+- Topbar compacta, panells foscos amb vores arrodonides, densitat visual equilibrada
