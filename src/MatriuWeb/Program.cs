@@ -15,21 +15,26 @@ builder.Services.Configure<PersistenceOptions>(
 
 // Redis (opcional, degradació graceful si no disponible)
 var redisConn = builder.Configuration["Redis:ConnectionString"] ?? "redis:6379";
-try
-{
-    var mux = ConnectionMultiplexer.Connect(redisConn);
-    builder.Services.AddSingleton<IConnectionMultiplexer>(mux);
-}
-catch
-{
-    builder.Services.AddSingleton<IConnectionMultiplexer?>(_ => null);
-}
+IConnectionMultiplexer? redisMux = null;
+try { redisMux = ConnectionMultiplexer.Connect(redisConn); } catch { /* degradació graceful */ }
+if (redisMux != null)
+    builder.Services.AddSingleton<IConnectionMultiplexer>(redisMux);
+
+// HttpClient per a les proves d'iframe (ignora errors de certificat en entorns interns)
+builder.Services.AddHttpClient("iframe-probe")
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    {
+        ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
+        AllowAutoRedirect = true,
+        MaxAutomaticRedirections = 3
+    });
 
 // Services
 builder.Services.AddSingleton<IJsonPersistenceService, JsonPersistenceService>();
 builder.Services.AddSingleton<IBackupService, BackupService>();
 builder.Services.AddSingleton<IFrameConfigurationService, FrameConfigurationService>();
 builder.Services.AddSingleton<IRedisCacheService, RedisCacheService>();
+builder.Services.AddSingleton<IIframeStatusService, IframeStatusService>();
 builder.Services.AddScoped<IDashboardStateService, DashboardStateService>();
 builder.Services.AddSingleton<IHealthService, HealthService>();
 
@@ -44,7 +49,6 @@ app.UseAntiforgery();
 app.MapRazorComponents<MatriuWeb.Components.App>()
     .AddInteractiveServerRenderMode();
 
-// Health endpoint (simple JSON, no dep externa)
 app.MapGet("/health", async (IHealthService health) =>
 {
     var status = await health.GetStatusAsync();

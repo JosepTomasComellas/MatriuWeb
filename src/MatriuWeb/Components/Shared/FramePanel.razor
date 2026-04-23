@@ -1,8 +1,11 @@
 @rendermode InteractiveServer
 @inject IJSRuntime JS
+@inject IIframeStatusService StatusService
 @implements IAsyncDisposable
 
 <div class="frame-body @(Small ? "frame-body--small" : "")">
+
+    @* Overlay de càrrega *@
     @if (_state == FrameState.Loading)
     {
         <div class="frame-overlay">
@@ -10,37 +13,48 @@
             <span class="frame-overlay-text">Carregant...</span>
         </div>
     }
-    else if (_state == FrameState.Error)
+
+    @* Overlay d'error de connexió *@
+    @if (_state == FrameState.Error)
     {
         <div class="frame-overlay frame-overlay--error">
-            <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Color="Color.Error" />
-            <span class="frame-overlay-text">@_errorMessage</span>
+            <MudIcon Icon="@Icons.Material.Filled.WifiOff" Color="Color.Error" Size="Size.Small" />
+            <span class="frame-overlay-text">@_statusMessage</span>
             <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Default"
-                       OnClick="() => JS.InvokeVoidAsync(""open"", Frame.Url, ""_blank"")">
+                       OnClick="OpenInTab">
                 Obrir en nova pestanya
+            </MudButton>
+            <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Default"
+                       OnClick="ForceLoad">
+                Intentar igualment
             </MudButton>
         </div>
     }
-    else if (_state == FrameState.Blocked)
+
+    @* Overlay de bloqueig (X-Frame-Options / CSP) *@
+    @if (_state == FrameState.Blocked)
     {
         <div class="frame-overlay frame-overlay--blocked">
-            <MudIcon Icon="@Icons.Material.Filled.Block" Color="Color.Warning" />
-            <span class="frame-overlay-text">Bloquejat per X-Frame-Options</span>
+            <MudIcon Icon="@Icons.Material.Filled.Block" Color="Color.Warning" Size="Size.Small" />
+            <span class="frame-overlay-text">Bloqueig d'embedding detectat</span>
+            <span class="frame-overlay-subtext">X-Frame-Options o CSP frame-ancestors</span>
             <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Default"
-                       OnClick="() => JS.InvokeVoidAsync(""open"", Frame.Url, ""_blank"")">
+                       OnClick="OpenInTab">
                 Obrir en nova pestanya
             </MudButton>
         </div>
     }
 
-    <div class="frame-status-dot frame-status-dot--@_state.ToString().ToLower()"></div>
+    @* Dot d'estat (sempre visible sobre la capçalera del frame) *@
+    <div class="frame-status-dot frame-status-dot--@StateCss" title="@_statusMessage"></div>
 
-    <iframe src="@_iframeSrc"
-            class="frame-iframe @(_state == FrameState.Ok ? "" : "frame-iframe--hidden")"
-            @ref="_iframeRef"
+    @* Iframe real *@
+    <iframe @ref="_iframeEl"
+            src="@_src"
+            class="frame-iframe @(_showIframe ? "" : "frame-iframe--hidden")"
             title="@Frame.Title"
             loading="lazy"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups">
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation">
     </iframe>
 </div>
 
@@ -49,59 +63,129 @@
     [Parameter] public bool Paused { get; set; }
     [Parameter] public bool Small { get; set; }
 
-    private enum FrameState { Loading, Ok, Error, Blocked, Slow }
+    private enum FrameState { Loading, Ok, Slow, Error, Blocked }
 
     private FrameState _state = FrameState.Loading;
-    private string _iframeSrc = string.Empty;
-    private string _errorMessage = string.Empty;
-    private ElementReference _iframeRef;
+    private string _src = string.Empty;
+    private string _statusMessage = string.Empty;
+    private bool _showIframe;
+    private ElementReference _iframeEl;
+    private DotNetObjectReference<FramePanel>? _dotNetRef;
     private Timer? _refreshTimer;
+    private bool _jsReady;
+
+    private string StateCss => _state switch
+    {
+        FrameState.Ok      => "ok",
+        FrameState.Slow    => "slow",
+        FrameState.Error   => "error",
+        FrameState.Blocked => "blocked",
+        _                  => "loading"
+    };
 
     protected override void OnInitialized()
     {
-        _iframeSrc = Frame.Url;
-        _state = FrameState.Loading;
+        _dotNetRef = DotNetObjectReference.Create(this);
+        _src = Frame.Url;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _jsReady) return;
+        _jsReady = true;
+
+        // Primer: prova de servidor per detectar bloqueig/inaccessible
+        var reachability = await StatusService.CheckAsync(Frame.Url);
+
+        switch (reachability)
+        {
+            case FrameReachability.Blocked:
+                SetState(FrameState.Blocked, "Bloqueig d'embedding detectat");
+                break;
+
+            case FrameReachability.Unreachable:
+                SetState(FrameState.Error, "URL no accessible des del servidor");
+                break;
+
+            case FrameReachability.Slow:
+                // Carrega igualment però marca com a lent
+                await LoadIframeAsync();
+                SetState(FrameState.Slow, "Resposta lenta");
+                break;
+
+            default:
+                await LoadIframeAsync();
+                break;
+        }
+
         ScheduleRefresh();
+    }
+
+    private async Task LoadIframeAsync()
+    {
+        _showIframe = true;
+        StateHasChanged();
+        await JS.InvokeVoidAsync("matriuWeb.initFrame", _iframeEl, _dotNetRef);
+    }
+
+    [JSInvokable]
+    public void OnIframeLoaded()
+    {
+        if (_state == FrameState.Loading)
+            SetState(FrameState.Ok, "OK");
+    }
+
+    [JSInvokable]
+    public void OnIframeError()
+    {
+        SetState(FrameState.Error, "Error de càrrega de l'iframe");
+    }
+
+    private void SetState(FrameState state, string message)
+    {
+        _state = state;
+        _statusMessage = message;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ScheduleRefresh()
+    {
+        if (Frame.RefreshSeconds <= 0 || Small) return;
+        _refreshTimer?.Dispose();
+        var ms = Frame.RefreshSeconds * 1000;
+        _refreshTimer = new Timer(_ => InvokeAsync(DoRefresh), null, ms, ms);
     }
 
     protected override void OnParametersSet()
     {
         if (Paused)
             _refreshTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-        else
+        else if (_jsReady)
             ScheduleRefresh();
     }
 
-    private void ScheduleRefresh()
+    private async Task DoRefresh()
     {
-        if (Frame.RefreshSeconds <= 0 || Small) return;
-        var ms = Frame.RefreshSeconds * 1000;
-        _refreshTimer?.Dispose();
-        _refreshTimer = new Timer(_ => InvokeAsync(Reload), null, ms, ms);
+        if (Paused || _state == FrameState.Blocked) return;
+        _state = FrameState.Loading;
+        _src = $"{Frame.Url}{(Frame.Url.Contains('?') ? "&" : "?")}t={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+        StateHasChanged();
+        await JS.InvokeVoidAsync("matriuWeb.initFrame", _iframeEl, _dotNetRef);
     }
 
-    private void Reload()
+    private async Task OpenInTab() =>
+        await JS.InvokeVoidAsync("matriuWeb.openTab", Frame.Url);
+
+    private async Task ForceLoad()
     {
         _state = FrameState.Loading;
-        // Forçar reload canviant la src amb timestamp
-        _iframeSrc = $"{Frame.Url}{(Frame.Url.Contains('?') ? "&" : "?")}t={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
-        StateHasChanged();
-    }
-
-    // L'estat real es detecta via JS (onload/onerror); aquí el simulem Ok per defecte
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            await Task.Delay(800); // breu espera per permetre la càrrega
-            _state = FrameState.Ok;
-            StateHasChanged();
-        }
+        await LoadIframeAsync();
     }
 
     public async ValueTask DisposeAsync()
     {
         _refreshTimer?.Dispose();
+        _dotNetRef?.Dispose();
         await Task.CompletedTask;
     }
 }

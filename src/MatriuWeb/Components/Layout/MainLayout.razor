@@ -1,55 +1,89 @@
 @inherits LayoutComponentBase
 @inject IDashboardStateService DashState
+@inject IFrameConfigurationService ConfigService
 @inject NavigationManager Nav
 @implements IDisposable
 
 <MudThemeProvider Theme="_theme" IsDarkMode="true" />
 <MudPopoverProvider />
-<MudDialogProvider />
+<MudDialogProvider FullWidth="true" MaxWidth="MaxWidth.Small" />
 <MudSnackbarProvider />
 
 <MudLayout>
-    <MudAppBar Elevation="0" Dense="true" Style="background:#0f172a; border-bottom:1px solid rgba(255,255,255,0.07);">
+    <MudAppBar Elevation="0" Dense="true"
+               Style="background:#0f172a; border-bottom:1px solid rgba(255,255,255,0.07); height:48px;">
+
+        @* Logo / nom *@
         <MudIconButton Icon="@Icons.Material.Filled.GridView"
-                       Color="Color.Default"
+                       Color="Color.Default" Size="Size.Medium"
                        Title="Dashboard"
+                       Style="color:#3b82f6;"
                        OnClick='() => Nav.NavigateTo("/")' />
 
-        <MudText Typo="Typo.subtitle2"
-                 Style="color:#94a3b8; font-weight:600; letter-spacing:0.05em; margin-left:4px;">
+        <MudText Typo="Typo.caption"
+                 Style="color:#64748b; font-weight:700; letter-spacing:0.12em; margin-left:2px; user-select:none;">
             MATRIUWEB
         </MudText>
 
+        <MudDivider Vertical="true" FlexItem="true" Style="margin:8px 8px; border-color:rgba(255,255,255,0.1);" />
+
+        @* Selector de perfil *@
+        @if (_profiles.Count > 1)
+        {
+            <MudSelect T="string"
+                       Value="@_activeProfileId"
+                       ValueChanged="ChangeProfile"
+                       Variant="Variant.Text"
+                       Dense="true"
+                       Style="min-width:140px; max-width:180px; color:#94a3b8;"
+                       Margin="Margin.Dense">
+                @foreach (var p in _profiles)
+                {
+                    <MudSelectItem Value="@p.Id">@p.Name</MudSelectItem>
+                }
+            </MudSelect>
+        }
+        else if (_profiles.Count == 1)
+        {
+            <MudText Typo="Typo.body2" Style="color:#94a3b8;">@_profiles[0].Name</MudText>
+        }
+
         <MudSpacer />
 
+        @* Indicador de focus actiu *@
         @if (DashState.FocusedFrameId != null)
         {
-            <MudChip T="string" Color="Color.Info" Size="Size.Small" Style="margin-right:8px;">
-                Vista enfocada
+            <MudChip T="string" Color="Color.Info" Size="Size.Small"
+                     Style="margin-right:4px; font-size:10px; height:20px;">
+                enfocant
             </MudChip>
             <MudIconButton Icon="@Icons.Material.Filled.GridView"
-                           Color="Color.Default"
+                           Color="Color.Default" Size="Size.Small"
                            Title="Tornar a la matriu"
                            OnClick="() => DashState.FocusFrame(null)" />
         }
 
+        @* Toggle refresh *@
         <MudIconButton Icon="@(DashState.IsRefreshPaused ? Icons.Material.Filled.PlayArrow : Icons.Material.Filled.Pause)"
-                       Color="Color.Default"
+                       Color="Color.Default" Size="Size.Small"
                        Title="@(DashState.IsRefreshPaused ? "Reprendre refresh" : "Pausar refresh")"
                        OnClick="DashState.ToggleRefresh" />
 
-        <MudIconButton Icon="@Icons.Material.Filled.Settings"
-                       Color="Color.Default"
+        @* Configuració *@
+        <MudIconButton Icon="@Icons.Material.Filled.Tune"
+                       Color="Color.Default" Size="Size.Small"
                        Title="Configuració"
                        OnClick='() => Nav.NavigateTo("/config")' />
 
+        @* Mode kiosk *@
         <MudIconButton Icon="@Icons.Material.Filled.Fullscreen"
-                       Color="Color.Default"
+                       Color="Color.Default" Size="Size.Small"
                        Title="Mode kiosk"
                        OnClick='() => Nav.NavigateTo("/kiosk")' />
+
     </MudAppBar>
 
-    <MudMainContent Style="background:#020617; min-height:100vh; padding-top:48px;">
+    <MudMainContent Style="background:#020617; padding-top:48px; height:100vh; overflow:hidden;">
         @Body
     </MudMainContent>
 </MudLayout>
@@ -59,34 +93,56 @@
     {
         PaletteDark = new PaletteDark
         {
-            Primary         = "#3b82f6",
-            PrimaryDarken   = "#1d4ed8",
-            Secondary       = "#94a3b8",
-            SecondaryDarken = "#64748b",
+            Primary           = "#3b82f6",
+            PrimaryDarken     = "#1d4ed8",
+            Secondary         = "#94a3b8",
+            SecondaryDarken   = "#64748b",
             AppbarBackground  = "#0f172a",
-            Background      = "#020617",
-            BackgroundGray  = "#0f172a",
-            Surface         = "#1e293b",
+            Background        = "#020617",
+            BackgroundGray    = "#0f172a",
+            Surface           = "#1e293b",
             DrawerBackground  = "#0f172a",
-            TextPrimary     = "#f1f5f9",
-            TextSecondary   = "#94a3b8",
-            ActionDefault   = "#94a3b8",
-            LinesDefault    = "rgba(255,255,255,0.07)",
-            TableLines      = "rgba(255,255,255,0.07)",
-            Divider         = "rgba(255,255,255,0.07)",
-            Success         = "#22c55e",
-            Warning         = "#f59e0b",
-            Error           = "#ef4444",
-            Info            = "#38bdf8",
+            TextPrimary       = "#f1f5f9",
+            TextSecondary     = "#94a3b8",
+            ActionDefault     = "#94a3b8",
+            LinesDefault      = "rgba(255,255,255,0.07)",
+            TableLines        = "rgba(255,255,255,0.07)",
+            Divider           = "rgba(255,255,255,0.07)",
+            Success           = "#22c55e",
+            Warning           = "#f59e0b",
+            Error             = "#ef4444",
+            Info              = "#38bdf8",
         }
     };
 
-    protected override void OnInitialized()
+    private List<FrameProfile> _profiles = new();
+    private string _activeProfileId = string.Empty;
+
+    protected override async Task OnInitializedAsync()
     {
-        DashState.StateChanged += OnStateChanged;
+        DashState.StateChanged += Refresh;
+        await LoadProfiles();
     }
 
-    private void OnStateChanged() => InvokeAsync(StateHasChanged);
+    private async Task LoadProfiles()
+    {
+        var config = await ConfigService.GetConfigAsync();
+        _profiles = config.Profiles;
+        _activeProfileId = config.ActiveProfileId;
+    }
 
-    public void Dispose() => DashState.StateChanged -= OnStateChanged;
+    private async Task ChangeProfile(string id)
+    {
+        _activeProfileId = id;
+        await ConfigService.SetActiveProfileAsync(id);
+        DashState.FocusFrame(null);
+    }
+
+    private void Refresh() => InvokeAsync(async () =>
+    {
+        await LoadProfiles();
+        StateHasChanged();
+    });
+
+    public void Dispose() => DashState.StateChanged -= Refresh;
 }

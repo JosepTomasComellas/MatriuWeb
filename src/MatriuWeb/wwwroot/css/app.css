@@ -4,17 +4,21 @@
    ============================================= */
 
 :root {
-    --mw-bg:        #020617;
-    --mw-surface:   #1e293b;
-    --mw-topbar:    #0f172a;
-    --mw-border:    rgba(255, 255, 255, 0.07);
-    --mw-text:      #f1f5f9;
-    --mw-text-muted:#94a3b8;
-    --mw-accent:    #3b82f6;
-    --mw-success:   #22c55e;
-    --mw-warning:   #f59e0b;
-    --mw-error:     #ef4444;
-    --mw-radius:    8px;
+    --mw-bg:            #020617;
+    --mw-surface:       #1e293b;
+    --mw-topbar:        #0f172a;
+    --mw-border:        rgba(255, 255, 255, 0.07);
+    --mw-border-hover:  rgba(255, 255, 255, 0.14);
+    --mw-text:          #f1f5f9;
+    --mw-text-muted:    #94a3b8;
+    --mw-text-dim:      #64748b;
+    --mw-accent:        #3b82f6;
+    --mw-accent-dk:     #1d4ed8;
+    --mw-success:       #22c55e;
+    --mw-warning:       #f59e0b;
+    --mw-error:         #ef4444;
+    --mw-radius:        8px;
+    --mw-topbar-h:      48px;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -30,11 +34,27 @@ html, body {
 }
 
 /* =====================
+   Skeleton de càrrega inicial
+   ===================== */
+
+.skeleton-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 8px;
+    padding: 8px;
+    height: calc(100vh - var(--mw-topbar-h));
+}
+
+/* =====================
    Grid de frames
    ===================== */
 
 .frame-grid {
-    overflow: hidden;
+    display: grid;
+    gap: 8px;
+    padding: 8px;
+    height: calc(100vh - var(--mw-topbar-h));
 }
 
 .frame-card {
@@ -45,11 +65,12 @@ html, body {
     flex-direction: column;
     overflow: hidden;
     position: relative;
-    transition: border-color 0.2s;
+    transition: border-color 0.18s ease;
+    min-height: 0; /* permet que el flex-children creixin dins del grid */
 }
 
 .frame-card:hover {
-    border-color: rgba(255, 255, 255, 0.14);
+    border-color: var(--mw-border-hover);
 }
 
 .frame-card--focused {
@@ -58,12 +79,11 @@ html, body {
 
 .frame-card--small {
     cursor: pointer;
-    opacity: 0.75;
-    transition: opacity 0.2s;
+    flex-shrink: 0;
 }
 
 .frame-card--small:hover {
-    opacity: 1;
+    border-color: var(--mw-accent);
 }
 
 /* =====================
@@ -74,22 +94,24 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4px 8px;
+    padding: 2px 6px 2px 10px;
     background: var(--mw-topbar);
     border-bottom: 1px solid var(--mw-border);
-    min-height: 32px;
+    min-height: 30px;
     flex-shrink: 0;
+    gap: 4px;
 }
 
 .frame-title {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     color: var(--mw-text-muted);
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
 }
 
 .frame-title--small {
@@ -99,7 +121,8 @@ html, body {
 .frame-actions {
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: 0;
+    flex-shrink: 0;
 }
 
 /* =====================
@@ -111,10 +134,12 @@ html, body {
     flex: 1;
     overflow: hidden;
     background: var(--mw-bg);
+    min-height: 0;
 }
 
 .frame-body--small {
-    max-height: 120px;
+    height: 100px;
+    flex: none;
 }
 
 .frame-iframe {
@@ -122,10 +147,12 @@ html, body {
     height: 100%;
     border: none;
     display: block;
+    transition: opacity 0.2s ease;
 }
 
 .frame-iframe--hidden {
     opacity: 0;
+    pointer-events: none;
 }
 
 /* =====================
@@ -139,20 +166,34 @@ html, body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    background: rgba(2, 6, 23, 0.85);
+    gap: 10px;
+    background: rgba(2, 6, 23, 0.92);
     z-index: 10;
+    padding: 16px;
+    text-align: center;
+    backdrop-filter: blur(2px);
 }
 
 .frame-overlay-text {
     font-size: 12px;
     color: var(--mw-text-muted);
-    text-align: center;
-    max-width: 200px;
+    max-width: 220px;
+    line-height: 1.4;
 }
 
-.frame-overlay--error   { border-top: 2px solid var(--mw-error); }
-.frame-overlay--blocked { border-top: 2px solid var(--mw-warning); }
+.frame-overlay-subtext {
+    font-size: 10px;
+    color: var(--mw-text-dim);
+    font-family: monospace;
+}
+
+.frame-overlay--error {
+    border-top: 2px solid var(--mw-error);
+}
+
+.frame-overlay--blocked {
+    border-top: 2px solid var(--mw-warning);
+}
 
 /* =====================
    Indicador d'estat (punt)
@@ -160,23 +201,25 @@ html, body {
 
 .frame-status-dot {
     position: absolute;
-    top: 6px;
-    left: 8px;
-    width: 6px;
-    height: 6px;
+    top: 0;
+    right: 0;
+    width: 5px;
+    height: 5px;
     border-radius: 50%;
     z-index: 5;
+    margin: 5px 5px 0 0;
+    transition: background 0.3s;
 }
 
-.frame-status-dot--ok      { background: var(--mw-success); }
-.frame-status-dot--loading { background: var(--mw-accent); animation: pulse 1s infinite; }
-.frame-status-dot--error   { background: var(--mw-error); }
-.frame-status-dot--blocked { background: var(--mw-warning); }
-.frame-status-dot--slow    { background: var(--mw-warning); }
+.frame-status-dot--ok        { background: var(--mw-success); }
+.frame-status-dot--loading   { background: var(--mw-accent); animation: blink 1.2s ease-in-out infinite; }
+.frame-status-dot--error     { background: var(--mw-error); }
+.frame-status-dot--blocked   { background: var(--mw-warning); }
+.frame-status-dot--slow      { background: var(--mw-warning); animation: blink 2s ease-in-out infinite; }
 
-@keyframes pulse {
+@keyframes blink {
     0%, 100% { opacity: 1; }
-    50%       { opacity: 0.3; }
+    50%       { opacity: 0.25; }
 }
 
 /* =====================
@@ -185,21 +228,25 @@ html, body {
 
 .focus-layout {
     display: grid;
-    grid-template-columns: 1fr 220px;
+    grid-template-columns: 1fr 200px;
     gap: 8px;
     padding: 8px;
-    height: calc(100vh - 48px);
+    height: calc(100vh - var(--mw-topbar-h));
 }
 
 .focus-main {
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 .focus-sidebar {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     overflow-y: auto;
+    padding-right: 2px;
 }
 
 /* =====================
@@ -211,32 +258,57 @@ html, body {
     inset: 0;
     background: var(--mw-bg);
     z-index: 9999;
+    display: flex;
+    flex-direction: column;
 }
 
 .kiosk-iframe {
-    width: 100%;
-    height: 100%;
+    flex: 1;
     border: none;
+    width: 100%;
+    min-height: 0;
 }
 
-.kiosk-exit {
-    position: fixed;
-    top: 8px;
-    right: 8px;
-    z-index: 10000;
-    background: rgba(15, 23, 42, 0.7);
-    border-radius: var(--mw-radius);
-    backdrop-filter: blur(4px);
+.kiosk-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: rgba(15, 23, 42, 0.85);
+    border-top: 1px solid var(--mw-border);
+    backdrop-filter: blur(6px);
+    min-height: 36px;
+    flex-shrink: 0;
+}
+
+.kiosk-dots {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.kiosk-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--mw-text-dim);
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+}
+
+.kiosk-dot--active {
+    background: var(--mw-accent);
+    transform: scale(1.4);
 }
 
 /* =====================
-   Scrollbars
+   Scrollbars minimalistes
    ===================== */
 
-::-webkit-scrollbar       { width: 6px; height: 6px; }
+::-webkit-scrollbar       { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
 
 /* =====================
    Responsive
@@ -246,14 +318,36 @@ html, body {
     .focus-layout {
         grid-template-columns: 1fr;
         grid-template-rows: 1fr auto;
+        height: calc(100vh - var(--mw-topbar-h));
     }
+
     .focus-sidebar {
         flex-direction: row;
         overflow-x: auto;
         overflow-y: hidden;
-        max-height: 120px;
+        height: 110px;
+        flex-shrink: 0;
     }
+
     .frame-card--small {
-        min-width: 160px;
+        min-width: 150px;
+        flex-shrink: 0;
     }
+
+    .kiosk-bar {
+        padding: 4px 6px;
+    }
+}
+
+/* =====================
+   Utilitats generals
+   ===================== */
+
+.mud-appbar .mud-icon-button {
+    color: var(--mw-text-muted) !important;
+}
+
+.mud-appbar .mud-icon-button:hover {
+    color: var(--mw-text) !important;
+    background: rgba(255,255,255,0.06) !important;
 }

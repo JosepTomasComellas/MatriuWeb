@@ -2,50 +2,139 @@
 @rendermode InteractiveServer
 @inject IFrameConfigurationService ConfigService
 @inject NavigationManager Nav
+@inject IJSRuntime JS
+@implements IDisposable
 
 <PageTitle>MatriuWeb — Kiosk</PageTitle>
 
 <div class="kiosk-root">
     @if (_frames != null && _frames.Any())
     {
-        @if (_focusIdx >= 0 && _focusIdx < _frames.Count)
-        {
-            var frame = _frames[_focusIdx];
-            <iframe src="@frame.Url"
-                    class="kiosk-iframe"
-                    title="@frame.Title"
-                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups">
-            </iframe>
-        }
+        var frame = _frames[_focusIdx];
 
-        <div class="kiosk-exit">
+        <iframe src="@frame.Url"
+                class="kiosk-iframe"
+                title="@frame.Title"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation">
+        </iframe>
+
+        @* Barra de controls kiosk *@
+        <div class="kiosk-bar">
+            @if (_frames.Count > 1)
+            {
+                <MudIconButton Icon="@Icons.Material.Filled.NavigateBefore"
+                               Color="Color.Default" Size="Size.Small"
+                               Title="Anterior"
+                               OnClick="Prev" />
+
+                <div class="kiosk-dots">
+                    @for (int i = 0; i < _frames.Count; i++)
+                    {
+                        var idx = i;
+                        <span class="kiosk-dot @(idx == _focusIdx ? "kiosk-dot--active" : "")"
+                              @onclick="() => GoTo(idx)"
+                              title="@_frames[idx].Title">
+                        </span>
+                    }
+                </div>
+
+                <MudIconButton Icon="@Icons.Material.Filled.NavigateNext"
+                               Color="Color.Default" Size="Size.Small"
+                               Title="Següent"
+                               OnClick="Next" />
+
+                <MudIconButton Icon="@(_rotationActive ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)"
+                               Color="Color.Default" Size="Size.Small"
+                               Title="@(_rotationActive ? "Pausar rotació" : "Rotar automàticament")"
+                               OnClick="ToggleRotation" />
+            }
+
+            <MudText Typo="Typo.caption" Style="color:#64748b; margin-left:4px;">
+                @frame.Title
+            </MudText>
+
+            <div style="flex:1;"></div>
+
+            <MudIconButton Icon="@Icons.Material.Filled.OpenInNew"
+                           Color="Color.Default" Size="Size.Small"
+                           Title="Obrir en nova pestanya"
+                           OnClick="OpenCurrent" />
+
             <MudIconButton Icon="@Icons.Material.Filled.GridView"
-                           Color="Color.Default"
-                           Size="Size.Small"
+                           Color="Color.Default" Size="Size.Small"
                            Title="Sortir del kiosk"
                            OnClick='() => Nav.NavigateTo("/")' />
+        </div>
+    }
+    else
+    {
+        <div style="display:flex; align-items:center; justify-content:center; height:100vh; flex-direction:column; gap:16px;">
+            <MudText Style="color:#64748b;">Sense frames configurats</MudText>
+            <MudButton Variant="Variant.Outlined" OnClick='() => Nav.NavigateTo("/config")'>
+                Anar a la configuració
+            </MudButton>
         </div>
     }
 </div>
 
 @code {
+    [SupplyParameterFromQuery] public int? FrameId { get; set; }
+
     private List<FrameItem>? _frames;
     private int _focusIdx = 0;
+    private bool _rotationActive = true;
     private Timer? _rotateTimer;
+    private int _rotationSeconds = 30;
 
     protected override async Task OnInitializedAsync()
     {
         var profile = await ConfigService.GetActiveProfileAsync();
         _frames = profile.EnabledFrames;
+        _rotationSeconds = profile.GlobalRefreshSeconds > 0 ? profile.GlobalRefreshSeconds : 30;
 
-        if (_frames.Count > 1)
-            _rotateTimer = new Timer(_ => InvokeAsync(Rotate), null, 30_000, 30_000);
+        if (_rotationActive && _frames.Count > 1)
+            StartRotation();
     }
 
-    private void Rotate()
+    private void StartRotation()
+    {
+        _rotateTimer?.Dispose();
+        _rotateTimer = new Timer(_ => InvokeAsync(() =>
+        {
+            _focusIdx = (_focusIdx + 1) % (_frames?.Count ?? 1);
+            StateHasChanged();
+        }), null, _rotationSeconds * 1000, _rotationSeconds * 1000);
+    }
+
+    private void ToggleRotation()
+    {
+        _rotationActive = !_rotationActive;
+        if (_rotationActive) StartRotation();
+        else _rotateTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+    }
+
+    private void GoTo(int idx)
+    {
+        _focusIdx = idx;
+        if (_rotationActive) StartRotation(); // reinicia el timer
+    }
+
+    private void Prev()
+    {
+        _focusIdx = (_focusIdx - 1 + (_frames?.Count ?? 1)) % (_frames?.Count ?? 1);
+        if (_rotationActive) StartRotation();
+    }
+
+    private void Next()
     {
         _focusIdx = (_focusIdx + 1) % (_frames?.Count ?? 1);
-        StateHasChanged();
+        if (_rotationActive) StartRotation();
+    }
+
+    private async Task OpenCurrent()
+    {
+        if (_frames == null || _frames.Count == 0) return;
+        await JS.InvokeVoidAsync("matriuWeb.openTab", _frames[_focusIdx].Url);
     }
 
     public void Dispose() => _rotateTimer?.Dispose();

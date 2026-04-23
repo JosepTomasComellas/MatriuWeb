@@ -21,7 +21,8 @@ public class RedisCacheService : IRedisCacheService
         {
             var db = _redis!.GetDatabase();
             var val = await db.StringGetAsync(key);
-            return val.HasValue ? JsonSerializer.Deserialize<T>(val!) : default;
+            if (!val.HasValue) return default;
+            return JsonSerializer.Deserialize<T>((string)val!);
         }
         catch (Exception ex)
         {
@@ -36,7 +37,11 @@ public class RedisCacheService : IRedisCacheService
         try
         {
             var db = _redis!.GetDatabase();
-            await db.StringSetAsync(key, JsonSerializer.Serialize(value), expiry);
+            var json = JsonSerializer.Serialize(value);
+            if (expiry.HasValue)
+                await db.StringSetAsync(key, json, expiry.Value);
+            else
+                await db.StringSetAsync(key, json);
         }
         catch (Exception ex)
         {
