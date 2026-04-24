@@ -18,7 +18,7 @@ services:
       Persistence__ConfigPath: /app/data/config/frame-config.json
       Persistence__BackupPath: /app/data/config/backups
       Persistence__MaxBackups: "20"
-      App__Version: "0.1.5"
+      App__Version: "0.1.7"
       App__PublicUrl: https://ct-matriuweb.sds.lab
     volumes:
       - ./data/config:/app/data/config
@@ -29,7 +29,7 @@ services:
     expose:
       - "8080"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/health"]
       interval: 30s
       timeout: 5s
       retries: 5

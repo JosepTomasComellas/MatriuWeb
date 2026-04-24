@@ -1,4 +1,4 @@
-# MatriuWeb · v0.1.6
+# MatriuWeb · v0.1.7
 
 Dashboard de monitorització web amb matriu configurable d'iframes. Blazor (.NET 10), MudBlazor, Docker Compose, Nginx HTTPS, Redis, Prometheus i Grafana. Desplegada en una LXC Proxmox amb Ubuntu Server 24.
 
@@ -258,6 +258,10 @@ El desplegament és **sempre manual**. No hi ha CI/CD automàtic.
 ---
 
 ## Changelog
+
+### v0.1.7 — 2026-04-24
+#### Correccions
+- Healthcheck web: `wget --spider` (HEAD) → `wget -O /dev/null` (GET) per evitar falsos negatius amb Kestrel
 
 ### v0.1.6 — 2026-04-24
 #### Infraestructura
