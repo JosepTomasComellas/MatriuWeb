@@ -1,4 +1,4 @@
-# MatriuWeb · v0.1.0
+# MatriuWeb · v0.1.4
 
 Dashboard de monitorització web amb matriu configurable d'iframes. Blazor (.NET 10), MudBlazor, Docker Compose, Nginx HTTPS, Redis, Prometheus i Grafana. Desplegada en una LXC Proxmox amb Ubuntu Server 24.
 
@@ -258,6 +258,23 @@ El desplegament és **sempre manual**. No hi ha CI/CD automàtic.
 ---
 
 ## Changelog
+
+### v0.1.4 — 2026-04-24
+#### Correccions
+- `Program.cs`: `UseMetricServer(port:8080)` → `MapMetrics("/metrics")` — eliminat conflicte de port amb Kestrel que impedia arrencar la web
+- `alertmanager.yml`: receptor `null` natiu per defecte (sintaxi `${VAR:-default}` no suportada pel parser YAML d'Alertmanager)
+- `data/alertmanager`: afegits permisos `777` al bootstrap (UID 65534)
+
+#### Canvis d'entorn
+- Entorn de desplegament: `ct-matriuweb.sds.lab` (172.25.1.12), port HTTPS 443
+- Eliminada monitorització del `compose.yaml` principal (stack independent)
+
+#### Fase 7
+- Drag & drop per reordenar frames (HTML5 `draggable`)
+- Export de configuració descàrrega fitxer JSON directament al navegador
+- Cache Redis per a lectures de `FrameConfigurationService` (TTL 5 min, invalidació en escriptura)
+- Alertmanager integrat a Prometheus
+- `.gitignore`: afegit `.claude/`
 
 ### v0.1.0 — 2026-04-23
 #### Nova funcionalitat
