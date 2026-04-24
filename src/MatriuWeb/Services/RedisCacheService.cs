@@ -16,11 +16,10 @@ public class RedisCacheService : IRedisCacheService
 
     public async Task<T?> GetAsync<T>(string key)
     {
-        if (!await IsAvailableAsync()) return default;
+        if (_redis == null || !_redis.IsConnected) return default;
         try
         {
-            var db = _redis!.GetDatabase();
-            var val = await db.StringGetAsync(key);
+            var val = await _redis.GetDatabase().StringGetAsync(key);
             if (!val.HasValue) return default;
             return JsonSerializer.Deserialize<T>((string)val!);
         }
@@ -33,15 +32,14 @@ public class RedisCacheService : IRedisCacheService
 
     public async Task SetAsync<T>(string key, T value, TimeSpan? expiry = null)
     {
-        if (!await IsAvailableAsync()) return;
+        if (_redis == null || !_redis.IsConnected) return;
         try
         {
-            var db = _redis!.GetDatabase();
             var json = JsonSerializer.Serialize(value);
             if (expiry.HasValue)
-                await db.StringSetAsync(key, json, expiry.Value);
+                await _redis.GetDatabase().StringSetAsync(key, json, expiry.Value);
             else
-                await db.StringSetAsync(key, json);
+                await _redis.GetDatabase().StringSetAsync(key, json);
         }
         catch (Exception ex)
         {
@@ -51,10 +49,10 @@ public class RedisCacheService : IRedisCacheService
 
     public async Task RemoveAsync(string key)
     {
-        if (!await IsAvailableAsync()) return;
+        if (_redis == null || !_redis.IsConnected) return;
         try
         {
-            await _redis!.GetDatabase().KeyDeleteAsync(key);
+            await _redis.GetDatabase().KeyDeleteAsync(key);
         }
         catch (Exception ex)
         {
@@ -64,8 +62,8 @@ public class RedisCacheService : IRedisCacheService
 
     public async Task<bool> IsAvailableAsync()
     {
-        if (_redis == null) return false;
-        try { return _redis.IsConnected && (await _redis.GetDatabase().PingAsync()).TotalMilliseconds < 2000; }
+        if (_redis == null || !_redis.IsConnected) return false;
+        try { return (await _redis.GetDatabase().PingAsync()).TotalMilliseconds < 2000; }
         catch { return false; }
     }
 }

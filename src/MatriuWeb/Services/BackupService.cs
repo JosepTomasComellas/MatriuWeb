@@ -59,9 +59,6 @@ public class BackupService : IBackupService
             .Skip(_opts.MaxBackups)
             .ToList();
 
-        foreach (var f in files)
-            File.Delete(f);
-
-        return Task.CompletedTask;
+        return Task.Run(() => { foreach (var f in files) File.Delete(f); });
     }
 }

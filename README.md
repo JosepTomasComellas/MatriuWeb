@@ -1,4 +1,4 @@
-# MatriuWeb · v0.1.9
+# MatriuWeb · v0.1.10
 
 Dashboard de monitorització web amb matriu configurable d'iframes. Blazor (.NET 10), MudBlazor, Docker Compose, Nginx HTTPS, Redis, Prometheus i Grafana. Desplegada en una LXC Proxmox amb Ubuntu Server 24.
 
@@ -258,6 +258,13 @@ El desplegament és **sempre manual**. No hi ha CI/CD automàtic.
 ---
 
 ## Changelog
+
+### v0.1.10 — 2026-04-24
+#### Millores
+- `RedisCacheService`: eliminat ping per operació — ara usa `IsConnected` (latència reduïda)
+- `Dashboard`: layout 3 frames en fila única (era 2+1 amb cel·la buida)
+- `FramePanel`: URL de refresh robusta davant fragments `#`
+- `BackupService`: `PruneOldBackupsAsync` asíncron real amb `Task.Run`
 
 ### v0.1.9 — 2026-04-24
 #### Correccions crítiques

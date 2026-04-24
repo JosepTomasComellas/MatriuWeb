@@ -168,7 +168,9 @@
     {
         if (Paused || _state == FrameState.Blocked) return;
         _state = FrameState.Loading;
-        _src = $"{Frame.Url}{(Frame.Url.Contains('?') ? "&" : "?")}t={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+        var baseUrl = Frame.Url.Contains('#') ? Frame.Url[..Frame.Url.IndexOf('#')] : Frame.Url;
+        var sep = baseUrl.Contains('?') ? "&" : "?";
+        _src = $"{baseUrl}{sep}t={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
         StateHasChanged();
         await JS.InvokeVoidAsync("matriuWeb.initFrame", _iframeEl, _dotNetRef);
     }
