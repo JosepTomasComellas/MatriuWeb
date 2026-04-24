@@ -1,18 +1,14 @@
 @rendermode InteractiveServer
 @inject IFrameConfigurationService ConfigService
+@inject IJSRuntime JS
 
 <MudStack Spacing="3">
     <MudText Typo="Typo.subtitle2" Style="color:#94a3b8;">Exportar configuració</MudText>
     <MudButton StartIcon="@Icons.Material.Filled.Download" Variant="Variant.Outlined"
-               Color="Color.Primary" Size="Size.Small" OnClick="Export">
-        Descarregar JSON
+               Color="Color.Primary" Size="Size.Small" OnClick="Export"
+               Disabled="_exporting">
+        @(_exporting ? "Exportant..." : "Descarregar JSON")
     </MudButton>
-    @if (!string.IsNullOrEmpty(_exportJson))
-    {
-        <MudTextField @bind-Value="_exportJson" Lines="8" ReadOnly="true"
-                      Variant="Variant.Outlined"
-                      Style="font-family:monospace; font-size:12px;" />
-    }
 
     <MudDivider Style="margin:16px 0;" />
 
@@ -36,14 +32,24 @@
     [Parameter] public EventCallback OnSaved { get; set; }
     [Parameter] public EventCallback<string> OnError { get; set; }
 
-    private string _exportJson = string.Empty;
     private string _importJson = string.Empty;
     private string _message = string.Empty;
     private Severity _severity = Severity.Normal;
+    private bool _exporting;
 
     private async Task Export()
     {
-        _exportJson = await ConfigService.ExportJsonAsync();
+        _exporting = true;
+        try
+        {
+            var json = await ConfigService.ExportJsonAsync();
+            var filename = $"frame-config-{DateTime.UtcNow:yyyyMMdd-HHmmss}.json";
+            await JS.InvokeVoidAsync("matriuWeb.downloadText", filename, json);
+        }
+        finally
+        {
+            _exporting = false;
+        }
     }
 
     private async Task Import()

@@ -4,6 +4,14 @@ global:
   scrape_timeout:      10s
 
 # ------------------------------------
+# Alertmanager
+# ------------------------------------
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+# ------------------------------------
 # Regles d'alerta
 # ------------------------------------
 rule_files:

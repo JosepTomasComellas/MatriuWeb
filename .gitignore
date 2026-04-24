@@ -1,3 +1,6 @@
+# Claude Code (agent local — no versionar mai)
+.claude/
+
 # Build
 bin/
 obj/

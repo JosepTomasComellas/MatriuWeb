@@ -64,22 +64,27 @@
         <!-- Llista de frames -->
         @foreach (var frame in _activeProfile.Frames.OrderBy(f => f.Order))
         {
-            var testResult = _testResults.GetValueOrDefault(frame.Id);
-            var testColor  = TestColor(testResult);
-            var testIcon   = TestIcon(testResult);
+            var fId        = frame.Id;
+            var hasResult  = _testResults.TryGetValue(fId, out var testResult);
+            var testColor  = TestColor(hasResult ? testResult : (FrameReachability?)null);
+            var testIcon   = TestIcon(hasResult ? testResult : (FrameReachability?)null);
+            var isDragOver = _dragOverId == fId;
 
-            <MudCard Style="background:#0f172a; border:1px solid rgba(255,255,255,0.07); margin-bottom:4px;">
+            <div draggable="true"
+                 @ondragstart="() => OnDragStart(fId)"
+                 @ondragover:preventDefault
+                 @ondragover="() => OnDragOver(fId)"
+                 @ondragleave="OnDragLeave"
+                 @ondrop="() => OnDrop(fId)"
+                 style="margin-bottom:4px;">
+            <MudCard Style="@($"background:#0f172a; border:1px solid {(isDragOver ? "#3b82f6" : "rgba(255,255,255,0.07)")}; cursor:grab; transition:border-color 0.15s;")">
                 <MudCardContent Style="padding:10px 12px;">
-                    <div style="display:grid; grid-template-columns:36px 1fr 2fr 110px 80px auto; gap:8px; align-items:center;">
+                    <div style="display:grid; grid-template-columns:28px 1fr 2fr 110px 80px auto; gap:8px; align-items:center;">
 
-                        <!-- Botons d'ordre -->
-                        <div style="display:flex; flex-direction:column; gap:0;">
-                            <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowUp"
-                                           Size="Size.Small" Style="height:20px; width:20px;"
-                                           OnClick="() => MoveFrame(frame.Id, -1)" />
-                            <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowDown"
-                                           Size="Size.Small" Style="height:20px; width:20px;"
-                                           OnClick="() => MoveFrame(frame.Id, 1)" />
+                        <!-- Handle de drag -->
+                        <div style="display:flex; flex-direction:column; align-items:center; gap:0; color:#475569; cursor:grab;"
+                             title="Arrossega per reordenar">
+                            <MudIcon Icon="@Icons.Material.Filled.DragIndicator" Size="Size.Small" />
                         </div>
 
                         <!-- Títol -->
@@ -90,7 +95,7 @@
                         <div style="position:relative;">
                             <MudTextField @bind-Value="frame.Url" Label="URL"
                                           Variant="Variant.Outlined" Margin="Margin.Dense"
-                                          Adornment="@(testResult != null ? Adornment.End : Adornment.None)"
+                                          Adornment="@(hasResult ? Adornment.End : Adornment.None)"
                                           AdornmentIcon="@testIcon"
                                           AdornmentColor="@testColor" />
                         </div>
@@ -124,7 +129,7 @@
                     </div>
 
                     <!-- Missatge de resultat del test -->
-                    @if (testResult != null)
+                    @if (hasResult)
                     {
                         <MudText Typo="Typo.caption"
                                  Style="@($"color:{TestColorHex(testResult)}; margin-top:4px; display:block;")">
@@ -133,6 +138,7 @@
                     }
                 </MudCardContent>
             </MudCard>
+            </div>
         }
 
         <!-- Accions principals -->
@@ -156,6 +162,9 @@
     private Dictionary<string, FrameReachability> _testResults = new();
     private HashSet<string> _testing = new();
     private bool _testingAll;
+
+    private string? _dragSourceId;
+    private string? _dragOverId;
 
     protected override void OnParametersSet()
     {
@@ -283,6 +292,41 @@
     {
         if (_activeProfile == null) return;
         try { await ConfigService.ReorderFrameAsync(_activeProfile.Id, frameId, direction); await OnSaved.InvokeAsync(); }
+        catch (Exception ex) { await OnError.InvokeAsync(ex.Message); }
+    }
+
+    // ── Drag & drop ───────────────────────────────────────────
+
+    private void OnDragStart(string frameId) => _dragSourceId = frameId;
+
+    private void OnDragOver(string frameId) => _dragOverId = frameId;
+
+    private void OnDragLeave() => _dragOverId = null;
+
+    private async Task OnDrop(string targetId)
+    {
+        _dragOverId = null;
+        if (_dragSourceId == null || _dragSourceId == targetId || _activeProfile == null)
+        {
+            _dragSourceId = null;
+            return;
+        }
+
+        var frames = _activeProfile.Frames.OrderBy(f => f.Order).ToList();
+        var srcIdx = frames.FindIndex(f => f.Id == _dragSourceId);
+        var dstIdx = frames.FindIndex(f => f.Id == targetId);
+        _dragSourceId = null;
+
+        if (srcIdx < 0 || dstIdx < 0) return;
+
+        var item = frames[srcIdx];
+        frames.RemoveAt(srcIdx);
+        frames.Insert(dstIdx, item);
+
+        for (int i = 0; i < frames.Count; i++)
+            frames[i].Order = i + 1;
+
+        try { await ConfigService.UpdateProfileAsync(_activeProfile); await OnSaved.InvokeAsync(); }
         catch (Exception ex) { await OnError.InvokeAsync(ex.Message); }
     }
 

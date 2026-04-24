@@ -1,0 +1,54 @@
+global:
+  resolve_timeout: 5m
+
+# ------------------------------------
+# Enrutament d'alertes
+# ------------------------------------
+route:
+  group_by: ["alertname", "severity"]
+  group_wait:      30s
+  group_interval:  5m
+  repeat_interval: 4h
+  receiver: "webhook-default"
+
+  routes:
+    - matchers:
+        - severity = "critical"
+      receiver: "webhook-critical"
+      repeat_interval: 1h
+
+# ------------------------------------
+# Receptors
+# ------------------------------------
+receivers:
+
+  # Receptor per defecte (warnings i informació)
+  - name: "webhook-default"
+    webhook_configs:
+      - url: "${ALERTMANAGER_WEBHOOK_URL:-http://localhost:9999/alerts}"
+        send_resolved: true
+
+  # Receptor per a alertes crítiques (amb Telegram si es configura)
+  - name: "webhook-critical"
+    webhook_configs:
+      - url: "${ALERTMANAGER_WEBHOOK_URL:-http://localhost:9999/alerts}"
+        send_resolved: true
+    # telegram_configs:   # Descomenta i configura per activar Telegram
+    #   - bot_token: "${TELEGRAM_BOT_TOKEN}"
+    #     chat_id: "${TELEGRAM_CHAT_ID}"
+    #     send_resolved: true
+    #     message: |
+    #       {{ range .Alerts }}
+    #       🔴 *{{ .Annotations.summary }}*
+    #       {{ .Annotations.description }}
+    #       {{ end }}
+
+# ------------------------------------
+# Inhibicions: evita alertes redundants
+# ------------------------------------
+inhibit_rules:
+  - source_matchers:
+      - severity = "critical"
+    target_matchers:
+      - severity = "warning"
+    equal: ["alertname", "instance"]

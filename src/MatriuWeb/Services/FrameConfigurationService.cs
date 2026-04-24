@@ -5,32 +5,47 @@ namespace MatriuWeb.Services;
 
 public class FrameConfigurationService : IFrameConfigurationService
 {
+    private const string CacheKey = "matriuweb:config";
+    private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
+
     private readonly IJsonPersistenceService _persistence;
     private readonly IBackupService _backup;
+    private readonly IRedisCacheService _cache;
     private readonly ILogger<FrameConfigurationService> _log;
     private static readonly JsonSerializerOptions _json = new() { WriteIndented = true };
 
     public FrameConfigurationService(
         IJsonPersistenceService persistence,
         IBackupService backup,
+        IRedisCacheService cache,
         ILogger<FrameConfigurationService> log)
     {
         _persistence = persistence;
         _backup = backup;
+        _cache = cache;
         _log = log;
     }
 
-    public Task<FrameConfig> GetConfigAsync() => _persistence.LoadAsync();
+    public async Task<FrameConfig> GetConfigAsync()
+    {
+        var cached = await _cache.GetAsync<FrameConfig>(CacheKey);
+        if (cached != null) return cached;
+
+        var config = await _persistence.LoadAsync();
+        await _cache.SetAsync(CacheKey, config, CacheTtl);
+        return config;
+    }
 
     public async Task SaveConfigAsync(FrameConfig config)
     {
         await _backup.CreateBackupAsync();
         await _persistence.SaveAsync(config);
+        await _cache.RemoveAsync(CacheKey);
     }
 
     public async Task<FrameProfile> GetActiveProfileAsync()
     {
-        var config = await _persistence.LoadAsync();
+        var config = await GetConfigAsync();
         return config.ActiveProfile ?? config.Profiles.First();
     }
 
@@ -152,7 +167,7 @@ public class FrameConfigurationService : IFrameConfigurationService
 
     public async Task<string> ExportJsonAsync()
     {
-        var config = await _persistence.LoadAsync();
+        var config = await GetConfigAsync();
         return JsonSerializer.Serialize(config, _json);
     }
 
