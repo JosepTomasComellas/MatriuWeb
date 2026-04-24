@@ -22,8 +22,8 @@ public class FrameConfig
                 GlobalRefreshSeconds = 30,
                 Frames = new List<FrameItem>
                 {
-                    new() { Id = "frame-1", Title = "Grafana", Url = "http://localhost:3000", Order = 1 },
-                    new() { Id = "frame-2", Title = "Health",  Url = "http://localhost:8080/health", Order = 2 }
+                    new() { Id = "frame-1", Title = "Dashboard 1", Url = "https://example.com", Order = 1 },
+                    new() { Id = "frame-2", Title = "Dashboard 2", Url = "https://example.com", Order = 2 }
                 }
             }
         }

@@ -18,10 +18,11 @@ services:
       Persistence__ConfigPath: /app/data/config/frame-config.json
       Persistence__BackupPath: /app/data/config/backups
       Persistence__MaxBackups: "20"
-      App__Version: "0.1.8"
+      App__Version: "0.1.9"
       App__PublicUrl: https://ct-matriuweb.sds.lab
     volumes:
       - ./data/config:/app/data/config
+      - ./data/keys:/app/data/keys
       - ./logs/web:/app/logs
     depends_on:
       redis:

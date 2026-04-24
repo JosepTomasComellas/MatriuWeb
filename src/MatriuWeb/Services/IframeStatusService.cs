@@ -23,7 +23,7 @@ public class IframeStatusService : IIframeStatusService
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out _)) return FrameReachability.Unknown;
 
-        var cacheKey = $"frame:status:{url.GetHashCode()}";
+        var cacheKey = $"frame:status:{url}";
         var cached = await _cache.GetAsync<FrameReachability>(cacheKey);
         if (cached != FrameReachability.Unknown) return cached;
 

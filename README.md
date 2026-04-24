@@ -1,4 +1,4 @@
-# MatriuWeb · v0.1.8
+# MatriuWeb · v0.1.9
 
 Dashboard de monitorització web amb matriu configurable d'iframes. Blazor (.NET 10), MudBlazor, Docker Compose, Nginx HTTPS, Redis, Prometheus i Grafana. Desplegada en una LXC Proxmox amb Ubuntu Server 24.
 
@@ -258,6 +258,15 @@ El desplegament és **sempre manual**. No hi ha CI/CD automàtic.
 ---
 
 ## Changelog
+
+### v0.1.9 — 2026-04-24
+#### Correccions crítiques
+- `Program.cs`: afegit `UseForwardedHeaders` + DataProtection persistent — fix circuit Blazor SignalR darrere nginx HTTPS
+- `nginx/conf.d/matriuweb.conf`: `map $http_upgrade $connection_upgrade` per a gestió correcta del WebSocket; `Host $host` sense port
+- `compose.yaml`: volum `data/keys` per persistir claus DataProtection entre reinicis del contenidor
+- `Models/FrameConfig.cs`: URLs per defecte canviades de `localhost:3000/8080` a `https://example.com`
+- `Services/IframeStatusService.cs`: clau de cache Redis ara usa la URL directament (era `GetHashCode()`, no determinista entre reinicis)
+- `scripts/bootstrap-lxc.sh`: afegit `data/keys`, eliminats directoris de monitorització (stack independent)
 
 ### v0.1.8 — 2026-04-24
 #### Infraestructura
