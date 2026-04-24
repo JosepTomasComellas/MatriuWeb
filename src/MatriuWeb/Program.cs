@@ -47,8 +47,8 @@ if (!app.Environment.IsDevelopment())
 app.UseStaticFiles();
 app.UseAntiforgery();
 
-// Mètriques Prometheus (accessible des de la xarxa interna Docker)
-app.UseMetricServer(port: 8080, url: "/metrics");
+// Mètriques Prometheus (endpoint al pipeline existent, port 8080)
+app.MapMetrics("/metrics");
 app.UseHttpMetrics();
 
 app.MapRazorComponents<MatriuWeb.Components.App>()
