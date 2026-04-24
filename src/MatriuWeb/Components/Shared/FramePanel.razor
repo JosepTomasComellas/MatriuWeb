@@ -100,20 +100,18 @@
         switch (reachability)
         {
             case FrameReachability.Blocked:
+                // X-Frame-Options o CSP: el navegador tampoc no podrà mostrar-lo
                 SetState(FrameState.Blocked, "Bloqueig d'embedding detectat");
                 break;
 
-            case FrameReachability.Unreachable:
-                SetState(FrameState.Error, "URL no accessible des del servidor");
-                break;
-
             case FrameReachability.Slow:
-                // Carrega igualment però marca com a lent
                 await LoadIframeAsync();
-                SetState(FrameState.Slow, "Resposta lenta");
+                SetState(FrameState.Slow, "Resposta lenta des del servidor");
                 break;
 
             default:
+                // Ok, Unreachable o Unknown: el navegador ho intenta igualment
+                // (URLs externes poden ser inaccessibles des del servidor però no des del navegador)
                 await LoadIframeAsync();
                 break;
         }
@@ -138,7 +136,7 @@
     [JSInvokable]
     public void OnIframeError()
     {
-        SetState(FrameState.Error, "Error de càrrega de l'iframe");
+        SetState(FrameState.Error, "URL no accessible des del navegador");
     }
 
     private void SetState(FrameState state, string message)
