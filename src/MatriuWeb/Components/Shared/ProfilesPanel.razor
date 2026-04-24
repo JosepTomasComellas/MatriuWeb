@@ -1,25 +1,28 @@
 @rendermode InteractiveServer
 @inject IFrameConfigurationService ConfigService
+@inject IIframeStatusService StatusService
 @inject IDialogService DialogService
 
 <MudStack Spacing="3">
-    <!-- Selector de perfil actiu -->
-    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+
+    <!-- Selector i accions de perfil -->
+    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
         <MudSelect T="string" Label="Perfil actiu" Value="@Config.ActiveProfileId"
                    ValueChanged="ChangeActiveProfile"
-                   Style="max-width:320px;"
-                   Variant="Variant.Outlined" Dense="true">
+                   Style="max-width:300px;" Variant="Variant.Outlined" Dense="true">
             @foreach (var p in Config.Profiles)
             {
                 <MudSelectItem Value="@p.Id">@p.Name</MudSelectItem>
             }
         </MudSelect>
+
         <MudButton StartIcon="@Icons.Material.Filled.Add" Size="Size.Small"
                    Variant="Variant.Outlined" Color="Color.Primary"
                    OnClick="AddProfile">Nou perfil</MudButton>
+
         <MudButton StartIcon="@Icons.Material.Filled.ContentCopy" Size="Size.Small"
-                   Variant="Variant.Outlined"
-                   OnClick="DuplicateActive">Duplicar</MudButton>
+                   Variant="Variant.Outlined" OnClick="DuplicateActive">Duplicar</MudButton>
+
         @if (Config.Profiles.Count > 1)
         {
             <MudButton StartIcon="@Icons.Material.Filled.Delete" Size="Size.Small"
@@ -30,65 +33,116 @@
 
     @if (_activeProfile != null)
     {
-        <!-- Edició del nom del perfil -->
-        <MudTextField @bind-Value="_activeProfile.Name" Label="Nom del perfil"
-                      Variant="Variant.Outlined" Dense="true" Style="max-width:320px;" />
+        <!-- Opcions del perfil -->
+        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+            <MudTextField @bind-Value="_activeProfile.Name" Label="Nom del perfil"
+                          Variant="Variant.Outlined" Dense="true" Style="max-width:280px;" />
+            <MudNumericField T="int" @bind-Value="_activeProfile.GlobalRefreshSeconds"
+                             Label="Refresh global (s)" Min="0" Max="3600"
+                             Variant="Variant.Outlined" Dense="true" Style="max-width:160px;" />
+            <MudSelect T="string" @bind-Value="_activeProfile.DefaultView" Label="Vista per defecte"
+                       Variant="Variant.Outlined" Dense="true" Style="max-width:160px;">
+                <MudSelectItem Value="@("matrix")">Matriu</MudSelectItem>
+                <MudSelectItem Value="@("focus")">Enfocada</MudSelectItem>
+            </MudSelect>
+        </div>
 
-        <MudTextField T="int" @bind-Value="_activeProfile.GlobalRefreshSeconds"
-                      Label="Refresh global (s)" Variant="Variant.Outlined"
-                      Dense="true" Style="max-width:200px;" />
+        <!-- Capçalera de la llista de frames -->
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-top:4px;">
+            <MudText Typo="Typo.subtitle2" Style="color:#94a3b8;">
+                Frames (@_activeProfile.Frames.Count)
+                — actius: @_activeProfile.Frames.Count(f => f.Enabled)
+            </MudText>
+            <MudButton StartIcon="@Icons.Material.Filled.NetworkCheck" Size="Size.Small"
+                       Variant="Variant.Text" Color="Color.Info"
+                       Disabled="_testingAll"
+                       OnClick="TestAll">
+                @(_testingAll ? "Provant..." : "Provar totes les URLs")
+            </MudButton>
+        </div>
 
         <!-- Llista de frames -->
-        <MudText Typo="Typo.subtitle2" Style="color:#94a3b8; margin-top:8px;">Frames</MudText>
-
         @foreach (var frame in _activeProfile.Frames.OrderBy(f => f.Order))
         {
+            var testResult = _testResults.GetValueOrDefault(frame.Id);
+            var testColor  = TestColor(testResult);
+            var testIcon   = TestIcon(testResult);
+
             <MudCard Style="background:#0f172a; border:1px solid rgba(255,255,255,0.07); margin-bottom:4px;">
-                <MudCardContent Style="padding:12px;">
-                    <MudGrid AlignItems="AlignItems.Center">
-                        <MudItem xs="1">
-                            <MudStack>
-                                <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowUp"
-                                               Size="Size.Small"
-                                               OnClick="() => MoveFrame(frame.Id, -1)" />
-                                <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowDown"
-                                               Size="Size.Small"
-                                               OnClick="() => MoveFrame(frame.Id, 1)" />
-                            </MudStack>
-                        </MudItem>
-                        <MudItem xs="3">
-                            <MudTextField @bind-Value="frame.Title" Label="Títol"
-                                          Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense" />
-                        </MudItem>
-                        <MudItem xs="5">
+                <MudCardContent Style="padding:10px 12px;">
+                    <div style="display:grid; grid-template-columns:36px 1fr 2fr 110px 80px auto; gap:8px; align-items:center;">
+
+                        <!-- Botons d'ordre -->
+                        <div style="display:flex; flex-direction:column; gap:0;">
+                            <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowUp"
+                                           Size="Size.Small" Style="height:20px; width:20px;"
+                                           OnClick="() => MoveFrame(frame.Id, -1)" />
+                            <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowDown"
+                                           Size="Size.Small" Style="height:20px; width:20px;"
+                                           OnClick="() => MoveFrame(frame.Id, 1)" />
+                        </div>
+
+                        <!-- Títol -->
+                        <MudTextField @bind-Value="frame.Title" Label="Títol"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+
+                        <!-- URL + resultat del test -->
+                        <div style="position:relative;">
                             <MudTextField @bind-Value="frame.Url" Label="URL"
-                                          Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense" />
-                        </MudItem>
-                        <MudItem xs="2">
-                            <MudTextField T="int" @bind-Value="frame.RefreshSeconds" Label="Refresh (s)"
-                                          Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense" />
-                        </MudItem>
-                        <MudItem xs="1" Style="display:flex; align-items:center; gap:4px;">
-                            <MudSwitch @bind-Value="frame.Enabled" Color="Color.Primary" Size="Size.Small" />
+                                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                                          Adornment="@(testResult != null ? Adornment.End : Adornment.None)"
+                                          AdornmentIcon="@testIcon"
+                                          AdornmentColor="@testColor" />
+                        </div>
+
+                        <!-- Refresh -->
+                        <MudNumericField T="int" @bind-Value="frame.RefreshSeconds"
+                                         Label="Refresh (s)" Min="0" Max="3600"
+                                         Variant="Variant.Outlined" Margin="Margin.Dense" />
+
+                        <!-- Botons d'acció -->
+                        <div style="display:flex; gap:4px; align-items:center;">
+                            <MudSwitch @bind-Value="frame.Enabled"
+                                       Color="Color.Primary" Size="Size.Small" />
+                            <MudIconButton Icon="@Icons.Material.Filled.NetworkCheck"
+                                           Size="Size.Small" Color="Color.Info"
+                                           Title="Provar URL"
+                                           Disabled="_testing.Contains(frame.Id)"
+                                           OnClick="() => TestUrl(frame.Id, frame.Url)" />
+                        </div>
+
+                        <!-- Eliminar -->
+                        <div>
                             @if (_activeProfile.Frames.Count(f => f.Enabled) > 2 || !frame.Enabled)
                             {
-                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
                                                Size="Size.Small" Color="Color.Error"
+                                               Title="Eliminar frame"
                                                OnClick="() => RemoveFrame(frame.Id)" />
                             }
-                        </MudItem>
-                    </MudGrid>
+                        </div>
+                    </div>
+
+                    <!-- Missatge de resultat del test -->
+                    @if (testResult != null)
+                    {
+                        <MudText Typo="Typo.caption"
+                                 Style="@($"color:{TestColorHex(testResult)}; margin-top:4px; display:block;")">
+                            @TestMessage(testResult)
+                        </MudText>
+                    }
                 </MudCardContent>
             </MudCard>
         }
 
-        <div style="display:flex; gap:12px; margin-top:8px;">
+        <!-- Accions principals -->
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:4px;">
             <MudButton StartIcon="@Icons.Material.Filled.Add" Size="Size.Small"
                        Variant="Variant.Outlined" Color="Color.Primary"
                        OnClick="AddFrame">Afegir frame</MudButton>
             <MudButton StartIcon="@Icons.Material.Filled.Save" Size="Size.Small"
                        Variant="Variant.Filled" Color="Color.Primary"
-                       OnClick="Save">Desar</MudButton>
+                       OnClick="Save">Desar canvis</MudButton>
         </div>
     }
 </MudStack>
@@ -99,6 +153,9 @@
     [Parameter] public EventCallback<string> OnError { get; set; }
 
     private FrameProfile? _activeProfile;
+    private Dictionary<string, FrameReachability> _testResults = new();
+    private HashSet<string> _testing = new();
+    private bool _testingAll;
 
     protected override void OnParametersSet()
     {
@@ -106,8 +163,71 @@
                          ?? Config.Profiles.FirstOrDefault();
     }
 
+    // ── Test de URL ──────────────────────────────────────────
+
+    private async Task TestUrl(string frameId, string url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return;
+        _testing.Add(frameId);
+        StateHasChanged();
+
+        var result = await StatusService.CheckAsync(url);
+        _testResults[frameId] = result;
+        _testing.Remove(frameId);
+        StateHasChanged();
+    }
+
+    private async Task TestAll()
+    {
+        if (_activeProfile == null) return;
+        _testingAll = true;
+        var tasks = _activeProfile.Frames.Select(f => TestUrl(f.Id, f.Url));
+        await Task.WhenAll(tasks);
+        _testingAll = false;
+        StateHasChanged();
+    }
+
+    private static Color TestColor(FrameReachability? r) => r switch
+    {
+        FrameReachability.Ok          => Color.Success,
+        FrameReachability.Slow        => Color.Warning,
+        FrameReachability.Blocked     => Color.Warning,
+        FrameReachability.Unreachable => Color.Error,
+        _                             => Color.Default
+    };
+
+    private static string TestColorHex(FrameReachability? r) => r switch
+    {
+        FrameReachability.Ok          => "#22c55e",
+        FrameReachability.Slow        => "#f59e0b",
+        FrameReachability.Blocked     => "#f59e0b",
+        FrameReachability.Unreachable => "#ef4444",
+        _                             => "#64748b"
+    };
+
+    private static string TestIcon(FrameReachability? r) => r switch
+    {
+        FrameReachability.Ok          => Icons.Material.Filled.CheckCircle,
+        FrameReachability.Slow        => Icons.Material.Filled.SlowMotionVideo,
+        FrameReachability.Blocked     => Icons.Material.Filled.Block,
+        FrameReachability.Unreachable => Icons.Material.Filled.WifiOff,
+        _                             => ""
+    };
+
+    private static string TestMessage(FrameReachability? r) => r switch
+    {
+        FrameReachability.Ok          => "Accessible",
+        FrameReachability.Slow        => "Accessible però lent (>3s)",
+        FrameReachability.Blocked     => "Bloquejat per X-Frame-Options o CSP — no es pot mostrar en iframe",
+        FrameReachability.Unreachable => "Inaccessible des del servidor",
+        _                             => ""
+    };
+
+    // ── Perfils ───────────────────────────────────────────────
+
     private async Task ChangeActiveProfile(string id)
     {
+        _testResults.Clear();
         try { await ConfigService.SetActiveProfileAsync(id); await OnSaved.InvokeAsync(); }
         catch (Exception ex) { await OnError.InvokeAsync(ex.Message); }
     }
@@ -131,12 +251,14 @@
     private async Task DeleteActive()
     {
         if (_activeProfile == null) return;
-        var confirmed = await DialogService.ShowMessageBox("Eliminar perfil",
-            $"Eliminar '{_activeProfile.Name}'?", "Sí", "No");
+        var confirmed = await DialogService.ShowMessageBox(
+            "Eliminar perfil", $"Eliminar '{_activeProfile.Name}'?", "Sí", "No");
         if (confirmed != true) return;
         try { await ConfigService.DeleteProfileAsync(_activeProfile.Id); await OnSaved.InvokeAsync(); }
         catch (Exception ex) { await OnError.InvokeAsync(ex.Message); }
     }
+
+    // ── Frames ────────────────────────────────────────────────
 
     private void AddFrame()
     {
@@ -152,6 +274,7 @@
     private async Task RemoveFrame(string frameId)
     {
         if (_activeProfile == null) return;
+        _testResults.Remove(frameId);
         try { await ConfigService.DeleteFrameAsync(_activeProfile.Id, frameId); await OnSaved.InvokeAsync(); }
         catch (Exception ex) { await OnError.InvokeAsync(ex.Message); }
     }

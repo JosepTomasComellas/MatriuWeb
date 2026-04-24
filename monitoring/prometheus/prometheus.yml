@@ -4,10 +4,10 @@ global:
   scrape_timeout:      10s
 
 # ------------------------------------
-# Regles d'alerta (base per a futur Alertmanager)
+# Regles d'alerta
 # ------------------------------------
-# rule_files:
-#   - /etc/prometheus/alerts/*.yml
+rule_files:
+  - /etc/prometheus/alerts/*.yml
 
 scrape_configs:
 
@@ -54,3 +54,8 @@ scrape_configs:
     metrics_path: /metrics
     static_configs:
       - targets: ["grafana:3000"]
+
+  # Nginx (via nginx-exporter + stub_status)
+  - job_name: "nginx"
+    static_configs:
+      - targets: ["nginx-exporter:9113"]

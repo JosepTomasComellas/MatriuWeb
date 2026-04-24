@@ -1,0 +1,38 @@
+@page "/Error"
+@using Microsoft.AspNetCore.Diagnostics
+
+<PageTitle>MatriuWeb — Error</PageTitle>
+
+<div style="display:flex; align-items:center; justify-content:center; height:calc(100vh - 48px); flex-direction:column; gap:20px; padding:24px;">
+    <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Color="Color.Error" Style="font-size:56px;" />
+    <MudText Typo="Typo.h5" Style="color:#f1f5f9;">S'ha produït un error inesperat</MudText>
+    <MudText Typo="Typo.body2" Style="color:#64748b; text-align:center; max-width:400px;">
+        L'aplicació ha trobat un problema. Prova de recarregar la pàgina o torna al dashboard.
+    </MudText>
+
+    @if (_requestId != null)
+    {
+        <MudText Typo="Typo.caption" Style="color:#475569; font-family:monospace;">
+            Request ID: @_requestId
+        </MudText>
+    }
+
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Home"
+               OnClick='() => Nav.NavigateTo("/")'>
+        Tornar al dashboard
+    </MudButton>
+</div>
+
+@code {
+    [CascadingParameter] HttpContext? HttpContext { get; set; }
+    [Inject] NavigationManager Nav { get; set; } = null!;
+
+    private string? _requestId;
+
+    protected override void OnInitialized()
+    {
+        var feature = HttpContext?.Features.Get<IExceptionHandlerPathFeature>();
+        _requestId = HttpContext?.TraceIdentifier;
+    }
+}

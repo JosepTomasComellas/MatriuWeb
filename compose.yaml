@@ -42,6 +42,7 @@ services:
   nginx:
     image: nginx:1.27-alpine
     container_name: matriuweb-nginx
+    hostname: nginx-internal
     restart: unless-stopped
     depends_on:
       web:
@@ -94,6 +95,7 @@ services:
       - "--web.enable-lifecycle"
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts:/etc/prometheus/alerts:ro
       - ./data/prometheus:/prometheus
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
@@ -168,6 +170,21 @@ services:
       - /var/run:/var/run:ro
       - /sys:/sys:ro
       - /var/lib/docker:/var/lib/docker:ro
+    networks:
+      - internal
+
+  # ============================
+  # nginx-exporter (mètriques Nginx via stub_status)
+  # Requereix activar stub_status a nginx.conf (vegeu comentari al conf.d)
+  # ============================
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:1.3.0
+    container_name: matriuweb-nginx-exporter
+    restart: unless-stopped
+    command:
+      - "--nginx.scrape-uri=http://nginx-internal:8081/stub_status"
+    depends_on:
+      - nginx
     networks:
       - internal
 

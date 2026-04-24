@@ -1,0 +1,64 @@
+groups:
+  - name: matriuweb.infra
+    interval: 60s
+    rules:
+
+      # Servei caigut
+      - alert: ServeiCaigut
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Servei {{ $labels.job }} no disponible"
+          description: "El servei {{ $labels.job }} ({{ $labels.instance }}) no respon des de fa 2 minuts."
+
+      # CPU host alta
+      - alert: CPUHostAlta
+        expr: 100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU del host alta ({{ $value | printf \"%.0f\" }}%)"
+          description: "La CPU del host porta més de 5 minuts per sobre del 85%."
+
+      # Memòria host alta
+      - alert: MemoriaHostAlta
+        expr: 100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Memòria del host alta ({{ $value | printf \"%.0f\" }}%)"
+          description: "La memòria disponible al host és inferior al 10% des de fa 5 minuts."
+
+      # Disc host alt
+      - alert: DiscHostAlt
+        expr: 100 - ((node_filesystem_avail_bytes{mountpoint="/",fstype!="tmpfs"} / node_filesystem_size_bytes{mountpoint="/",fstype!="tmpfs"}) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disc del host al {{ $value | printf \"%.0f\" }}%"
+          description: "El disc arrel del host supera el 80% d'ús."
+
+      # Redis no disponible
+      - alert: RedisNoDisponible
+        expr: redis_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis no disponible"
+          description: "Redis no respon des de fa 2 minuts."
+
+      # Memòria Redis alta
+      - alert: MemoriaRedisAlta
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis usa més del 90% de la memòria màxima"
+          description: "Redis ha superat el 90% de maxmemory. Pot activar l'evicció LRU."
