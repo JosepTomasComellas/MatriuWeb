@@ -26,6 +26,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    expose:
+      - "8080"
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
       interval: 30s
@@ -78,152 +80,8 @@ services:
       interval: 20s
       timeout: 3s
       retries: 5
-    networks:
-      - internal
-
-  # ============================
-  # Alertmanager
-  # ============================
-  alertmanager:
-    image: prom/alertmanager:v0.27.0
-    container_name: matriuweb-alertmanager
-    restart: unless-stopped
-    command:
-      - "--config.file=/etc/alertmanager/alertmanager.yml"
-      - "--storage.path=/alertmanager"
-    volumes:
-      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-      - ./data/alertmanager:/alertmanager
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9093/-/healthy"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-    networks:
-      - internal
-
-  # ============================
-  # Prometheus
-  # ============================
-  prometheus:
-    image: prom/prometheus:v2.54.1
-    container_name: matriuweb-prometheus
-    restart: unless-stopped
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.path=/prometheus"
-      - "--storage.tsdb.retention.time=30d"
-      - "--web.enable-lifecycle"
-    volumes:
-      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./monitoring/alerts:/etc/prometheus/alerts:ro
-      - ./data/prometheus:/prometheus
-    depends_on:
-      alertmanager:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-    networks:
-      - internal
-
-  # ============================
-  # Grafana
-  # ============================
-  grafana:
-    image: grafana/grafana:11.1.4
-    container_name: matriuweb-grafana
-    restart: unless-stopped
-    environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
-      GF_SECURITY_ALLOW_EMBEDDING: "true"
-      GF_SECURITY_COOKIE_SAMESITE: none
-      GF_SECURITY_COOKIE_SECURE: "true"
-      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s/grafana/"
-      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
-      GF_USERS_ALLOW_SIGN_UP: "false"
-      GF_ANALYTICS_REPORTING_ENABLED: "false"
-      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
-    volumes:
-      - ./data/grafana:/var/lib/grafana
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
-    depends_on:
-      prometheus:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-    networks:
-      - internal
-
-  # ============================
-  # node_exporter (host/LXC)
-  # ============================
-  node-exporter:
-    image: prom/node-exporter:v1.8.2
-    container_name: matriuweb-node-exporter
-    restart: unless-stopped
-    command:
-      - "--path.rootfs=/host"
-      - "--collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker|snap)($|/)"
-    pid: host
-    volumes:
-      - "/:/host:ro,rslave"
-    networks:
-      - internal
-
-  # ============================
-  # cAdvisor (contenidors Docker)
-  # ============================
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.49.1
-    container_name: matriuweb-cadvisor
-    restart: unless-stopped
-    privileged: true
-    command:
-      - "--docker_only=true"
-      - "--store_container_labels=false"
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker:/var/lib/docker:ro
-    networks:
-      - internal
-
-  # ============================
-  # nginx-exporter (mètriques Nginx via stub_status)
-  # Requereix activar stub_status a nginx.conf (vegeu comentari al conf.d)
-  # ============================
-  nginx-exporter:
-    image: nginx/nginx-prometheus-exporter:1.3.0
-    container_name: matriuweb-nginx-exporter
-    restart: unless-stopped
-    command:
-      - "--nginx.scrape-uri=http://nginx-internal:8081/stub_status"
-    depends_on:
-      - nginx
-    networks:
-      - internal
-
-  # ============================
-  # redis-exporter
-  # ============================
-  redis-exporter:
-    image: oliver006/redis_exporter:v1.62.0
-    container_name: matriuweb-redis-exporter
-    restart: unless-stopped
-    environment:
-      REDIS_ADDR: redis://redis:6379
-    depends_on:
-      redis:
-        condition: service_healthy
+    expose:
+      - "6379"
     networks:
       - internal
 
