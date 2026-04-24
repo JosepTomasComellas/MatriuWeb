@@ -69,8 +69,8 @@ Aquest flux és la referència de treball del projecte.
 ### Reverse proxy
 - **Nginx**
 - HTTPS
-- Port públic `4444`
-- Host públic `tuteapps.ddns.net`
+- Port públic `443`
+- Host públic `ct-matriuweb.sds.lab`
 
 ### Monitorització
 - **Grafana**
@@ -184,8 +184,8 @@ S'ha d'evitar:
 
 Configuració prevista de Nginx:
 
-- `listen 4444 ssl;`
-- `server_name tuteapps.ddns.net;`
+- `listen 443 ssl;`
+- `server_name ct-matriuweb.sds.lab;`
 - reverse proxy cap al servei web intern
 - suport per headers forwarded
 - suport correcte per connexions persistents de Blazor

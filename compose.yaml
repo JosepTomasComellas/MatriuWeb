@@ -19,7 +19,7 @@ services:
       Persistence__BackupPath: /app/data/config/backups
       Persistence__MaxBackups: "20"
       App__Version: "0.1.0"
-      App__PublicUrl: https://tuteapps.ddns.net:4444
+      App__PublicUrl: https://ct-matriuweb.sds.lab
     volumes:
       - ./data/config:/app/data/config
       - ./logs/web:/app/logs
@@ -48,13 +48,13 @@ services:
       web:
         condition: service_healthy
     ports:
-      - "4444:4444"
+      - "443:443"
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ./nginx/certs:/etc/nginx/certs:ro
       - ./logs/nginx:/var/log/nginx
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "--no-check-certificate", "https://localhost:4444/health"]
+      test: ["CMD", "wget", "--spider", "-q", "--no-check-certificate", "https://localhost/health"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -142,7 +142,7 @@ services:
       GF_SECURITY_ALLOW_EMBEDDING: "true"
       GF_SECURITY_COOKIE_SAMESITE: none
       GF_SECURITY_COOKIE_SECURE: "true"
-      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s:4444/grafana/"
+      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s/grafana/"
       GF_SERVER_SERVE_FROM_SUB_PATH: "true"
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_ANALYTICS_REPORTING_ENABLED: "false"

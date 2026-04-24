@@ -123,8 +123,8 @@ Quan s'hagin de generar fitxers, propostes o scripts:
 - Persistència de configuració: **JSON**
 - Desplegament: **Docker Compose**
 - Publicació HTTPS per:
-  - host: `tuteapps.ddns.net`
-  - port: `4444`
+  - host: `ct-matriuweb.sds.lab`
+  - port: `443`
 - Ruta de dades principal:
   - `/docker/MatriuWeb/data/config/frame-config.json`
 
@@ -173,7 +173,7 @@ Abans de donar una entrega com a bona:
 - La persistència JSON ha de ser robusta
 - Redis no pot ser la font de veritat
 - La documentació ha d'estar alineada amb el codi
-- La configuració Nginx ha de quadrar amb HTTPS i port 4444
+- La configuració Nginx ha de quadrar amb HTTPS i port 443
 - La solució ha de ser assumible dins una LXC
 - La UI ha de mantenir coherència visual clara amb AutoCo
 

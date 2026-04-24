@@ -1,0 +1,29 @@
+{
+  "activeProfileId": "default",
+  "profiles": [
+    {
+      "id": "default",
+      "name": "Perfil principal",
+      "defaultView": "matrix",
+      "globalRefreshSeconds": 30,
+      "frames": [
+        {
+          "id": "grafana-home",
+          "title": "Grafana",
+          "url": "https://ct-matriuweb.sds.lab/grafana/",
+          "refreshSeconds": 60,
+          "enabled": true,
+          "order": 1
+        },
+        {
+          "id": "matriu-health",
+          "title": "Health",
+          "url": "https://ct-matriuweb.sds.lab/health",
+          "refreshSeconds": 30,
+          "enabled": true,
+          "order": 2
+        }
+      ]
+    }
+  ]
+}

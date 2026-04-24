@@ -9,7 +9,7 @@ Dashboard de monitorització web amb matriu configurable d'iframes. Blazor (.NET
 | Capa | Tecnologia |
 |------|-----------|
 | Frontend | Blazor Server (.NET 10) + MudBlazor |
-| Reverse proxy | Nginx 1.27 — HTTPS, port 4444 |
+| Reverse proxy | Nginx 1.27 — HTTPS, port 443 |
 | Cache | Redis 7 — intern, no exposat |
 | Persistència | JSON (`data/config/frame-config.json`) |
 | Monitorització | Prometheus + Grafana + node_exporter + cAdvisor + redis-exporter |
@@ -127,10 +127,10 @@ docker compose up -d --build
 
 # 6. Verificar
 docker compose ps
-curl -k https://localhost:4444/health
+curl -k https://localhost/health
 ```
 
-Grafana: `https://tuteapps.ddns.net:4444/grafana/` — credencials inicials `admin/admin` (**canvia-les!**)
+Grafana: `https://ct-matriuweb.sds.lab/grafana/` — credencials inicials `admin/admin` (**canvia-les!**)
 
 ---
 
@@ -155,7 +155,7 @@ Els certificats han d'estar a `nginx/certs/` (no s'inclouen al repositori):
 - `server.crt` — certificat (cadena completa si cal)
 - `server.key` — clau privada
 
-Nginx escolta al port `4444` amb TLS 1.2+. Headers de seguretat inclosos (HSTS, X-Content-Type-Options, etc.).
+Nginx escolta al port `443` amb TLS 1.2+. Headers de seguretat inclosos (HSTS, X-Content-Type-Options, etc.).
 
 **Protecció de /config** (opcional) — basic auth:
 ```bash
@@ -211,7 +211,7 @@ Des de la UI: `Config → Backups → Restaurar`.
 Els dashboards s'autoprovisionen en arrencar Grafana.
 
 **Embedding de Grafana en iframes:**
-Grafana ja té `GF_SECURITY_ALLOW_EMBEDDING=true` i `cookie_samesite=none`. Des de MatriuWeb, afegeix una URL com `https://tuteapps.ddns.net:4444/grafana/d/mw-overview` com a frame.
+Grafana ja té `GF_SECURITY_ALLOW_EMBEDDING=true` i `cookie_samesite=none`. Des de MatriuWeb, afegeix una URL com `https://ct-matriuweb.sds.lab/grafana/d/mw-overview` com a frame.
 
 **Consideracions LXC/Proxmox:**
 - Activa `nesting=1` a les opcions de l'LXC al Proxmox per a cAdvisor
