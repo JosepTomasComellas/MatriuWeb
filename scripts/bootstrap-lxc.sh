@@ -28,13 +28,15 @@ mkdir -p "$BASE/data/config/backups"
 mkdir -p "$BASE/data/redis"
 mkdir -p "$BASE/data/grafana"
 mkdir -p "$BASE/data/prometheus"
+mkdir -p "$BASE/data/alertmanager"
 mkdir -p "$BASE/nginx/certs"
 mkdir -p "$BASE/logs/web"
 mkdir -p "$BASE/logs/nginx"
 mkdir -p "$BASE/monitoring/grafana/provisioning"
 mkdir -p "$BASE/monitoring/grafana/dashboards"
 
-chmod 777 "$BASE/data/grafana"  # Grafana escriu com a UID 472
+chmod 777 "$BASE/data/grafana"      # Grafana escriu com a UID 472
+chmod 777 "$BASE/data/alertmanager" # Alertmanager escriu com a UID 65534 (nobody)
 
 echo "Estructura creada a $BASE"
 echo ""
